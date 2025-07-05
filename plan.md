@@ -3,6 +3,24 @@
 ## Executive Summary
 **Mind Map** is a tags-first, offline mobile application that serves as a "second mind" for users. The app focuses on quick information capture and tag-based organization, with three core pages: Store Information, Information Display, and List Information. The application prioritizes immediate accessibility and offline functionality.
 
+## Application Focus Areas
+
+### Core Design Principles
+- **Tags-First Approach**: Tags are the main focus of the entire application
+- **Quick Capture**: Primary goal is immediate information storage
+- **Offline-First**: Application operates offline in first phase
+- **Tag-Based Search**: No full-text search, only tag-based filtering
+
+### Application Pages Structure
+1. **Store Information Page** - Primary entry point for capturing data
+2. **Information Page** - Display individual information items
+3. **List Information Page** - Browse and filter stored information
+
+### Automatic Behaviors
+- App opens directly to "Store Information" page
+- After 15 minutes in background, returning to app goes to "Store Information" page
+- Quick search button always accessible
+
 ## Architecture Overview
 
 ### System Architecture

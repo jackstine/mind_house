@@ -3,9 +3,18 @@
 ## Overview
 This workflow is designed to create a new application through a structured discovery and planning process that ensures thorough understanding before implementation.
 
-## Workflow Phases
+## Tasks
+the following is a set of tasks that can be performed from time to time.
 
-### Phase 1: Discovery
+### Instruction
+- **Objective**: Gather tasks and prompts from the user in instruction files.
+- **Activities**:
+  - You must not access the files unless instructed directly by the user.
+  - You will read and perform the set of tasks instructed in the instruction file.
+  - Instruction files will be `instruction-x.md` where `x` is a number, denoted the `xth` instruction. Do not perform tasks from a previous instruction.
+  - instructions can be found in the `instruction` folder.
+
+### Discovery
 - **Objective**: Gather comprehensive information about the application requirements
 - **Activities**:
   - Ask targeted questions to understand user needs
@@ -14,7 +23,7 @@ This workflow is designed to create a new application through a structured disco
   - Continuously update Q&A with new questions and answers
 - **Output**: Complete discovery documentation
 
-### Phase 2: Planning
+### Planning
 - **Objective**: Create a solid architectural plan based on discovery findings
 - **Activities**:
   - Analyze discovery information
@@ -22,10 +31,9 @@ This workflow is designed to create a new application through a structured disco
   - Create implementation roadmap
   - Document plan in `plan.md`
   - Iterate on plan based on user feedback
-  - Read and complete tasks from `instructions-1.md`
 - **Output**: Detailed implementation plan
 
-### Phase 3: Implementation (Future)
+### Implementation (Future)
 - **Objective**: Build the application according to the plan
 - **Activities**: TBD based on completed plan
 
@@ -47,6 +55,7 @@ This workflow is designed to create a new application through a structured disco
 - All information should be properly documented in designated files
 - Iterate until sufficient information is gathered for solid planning
 - When searching the web, include links to relevant information sources
+- Include links in a `links.md` file with a heading showing the category of the types of links.
 - Always update `plan.md` when receiving new requirements or information
 
 ## Instructions Processing
@@ -57,36 +66,13 @@ This workflow is designed to create a new application through a structured disco
 - Update workflow with new processes as instructed
 - Mark completed tasks in planning todo lists
 
-## Application Focus Areas
-
-### Core Design Principles
-- **Tags-First Approach**: Tags are the main focus of the entire application
-- **Quick Capture**: Primary goal is immediate information storage
-- **Offline-First**: Application operates offline in first phase
-- **Tag-Based Search**: No full-text search, only tag-based filtering
-
-### Application Pages Structure
-1. **Store Information Page** - Primary entry point for capturing data
-2. **Information Page** - Display individual information items
-3. **List Information Page** - Browse and filter stored information
-
-### Automatic Behaviors
-- App opens directly to "Store Information" page
-- After 15 minutes in background, returning to app goes to "Store Information" page
-- Quick search button always accessible
 
 ## File Management Rules
 
 ### Backlog Management
 - Use `backlog.md` for all future/deferred features
-- Items to include in backlog:
-  - Templates and structures
-  - Backend development
-  - Import/export functionality
-  - Smart suggestions
-  - Collaboration preparation
 
 ### Documentation Requirements
-- Create design documents for major features (tagging, data schema, etc.)
+- Create design documents for major features
 - Maintain component documentation in `components.md`
 - Update `plan.md` with all new information received

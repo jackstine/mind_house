@@ -67,3 +67,23 @@
 
 15. Should it have AI/smart features for organizing or suggesting connections?
    - No AI features
+
+16. What is the primary focus of the application interface?
+   - Tags are the main focus of the entire application
+   - UI should be focused around tags and tag-based organization
+
+17. What type of search functionality should the app have?
+   - Tag-based search only (no full-text search)
+   - Filter by tags for information retrieval
+
+18. Should the app work offline in the first phase?
+   - Yes, offline-first approach for Phase 1
+   - No backend required initially
+
+19. What should happen when the user opens the app?
+   - App should open directly to "Store Information" page for quick capture
+   - After 15 minutes in background, returning should go to "Store Information" page
+
+20. How many pages should the application have?
+   - Three core pages: Store Information, Information Page, List Information Page
+   - No additional pages needed for MVP

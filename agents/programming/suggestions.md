@@ -1,1 +1,2 @@
 - when you use a new command in the terminal, place it in a file so that it is recorded.
+- in the planning stages we need it to think of all the packages that it will need in the project, and add a todo to all all of these packages.  As one of the first things to do in the project.

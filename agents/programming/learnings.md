@@ -242,6 +242,90 @@ CREATE TABLE information_tags (
 );
 ```
 
+## Tasks C1-C3: Core Models Implementation
+
+### C1-C3: Core Model Classes with TDD
+**Date**: 2025-07-06
+**Tasks**: Create Information, Tag, and InformationTag model classes
+**Context**: Implementing core data models for Mind House app using Test-Driven Development
+
+**Success**:
+- Added uuid dependency for Information model UUID generation
+- Created comprehensive test suites for all three models
+- Implemented models with full validation and error handling
+- All tests passing (34 total tests across 3 models)
+
+**Dependencies Added**:
+```yaml
+uuid: ^4.0.0
+```
+
+**Models Created**:
+1. **Information Model** (`lib/models/information.dart`):
+   - UUID primary key with auto-generation
+   - Content validation (non-empty, trimmed)
+   - Created/updated timestamps
+   - Map serialization/deserialization
+   - Equality and hashCode implementation
+
+2. **Tag Model** (`lib/models/tag.dart`):
+   - Auto-increment integer ID (database managed)
+   - Name validation with trimming
+   - Optional hex color validation
+   - Usage count tracking with increment method
+   - Normalized name for searching
+
+3. **InformationTag Model** (`lib/models/information_tag.dart`):
+   - Junction table for many-to-many relationship
+   - Foreign key validation
+   - Association timestamp tracking
+
+**Testing Approach**:
+- Test-Driven Development (tests written first)
+- Comprehensive validation testing
+- Equality and hashCode testing
+- Serialization/deserialization testing
+- Edge case validation (empty strings, invalid data)
+
+**Commands Used**:
+```bash
+fvm flutter pub get
+fvm flutter test test/models/information_test.dart
+fvm flutter test test/models/tag_test.dart
+fvm flutter test test/models/information_tag_test.dart
+fvm flutter test test/models/
+```
+
+**Key Features Implemented**:
+- **UUID Generation**: Automatic UUID v4 generation for Information
+- **Data Validation**: Comprehensive input validation with ArgumentError
+- **Color Validation**: Hex color format validation for tags
+- **Usage Tracking**: Tag usage count with increment functionality
+- **Normalization**: Tag name normalization for consistent searching
+- **Relationships**: Proper foreign key modeling for associations
+- **Immutability**: Immutable models with copyWith functionality
+
+**Testing Coverage**:
+- Information Model: 9 test cases covering UUID generation, validation, serialization
+- Tag Model: 14 test cases covering creation, validation, color format, usage tracking
+- InformationTag Model: 11 test cases covering associations, validation, equality
+
+**Learnings**:
+- TDD approach significantly improved code quality and design
+- Comprehensive validation prevents runtime errors
+- UUID package provides reliable unique identifiers
+- Immutable models with copyWith provide safe state management
+- Proper equality implementation crucial for model comparison
+- Map serialization enables database persistence
+- Junction table model simplifies many-to-many relationships
+
+**Flutter/Dart Specifics**:
+- Null safety handled properly with validation
+- Factory constructors used for deserialization
+- DateTime.millisecondsSinceEpoch for database storage
+- ArgumentError for validation failures
+- Proper toString() implementation for debugging
+
 ## Template for Future Entries
 
 ### [Task Name/Number]

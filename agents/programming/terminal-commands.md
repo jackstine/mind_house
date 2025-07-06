@@ -25,7 +25,27 @@ This file records all terminal commands used during development with explanation
 #### fvm flutter test
 **Purpose**: Run Flutter tests using the fvm-managed Flutter version
 **Usage**: `fvm flutter test`
-**Explanation**: Executes all test files in the test directory. Uses the Flutter version managed by fvm to ensure consistency across environments.
+**Explanation**: Executes all test files in the test directory. Uses the Flutter version managed by fvm to ensure consistency across environments. REQUIRED for every development task completion.
+
+#### fvm flutter test --coverage
+**Purpose**: Run Flutter tests with coverage report
+**Usage**: `fvm flutter test --coverage`
+**Explanation**: Runs all tests and generates a coverage report. Target coverage is >80% for the Mind Map application.
+
+#### fvm flutter test test/database/
+**Purpose**: Run specific test directory
+**Usage**: `fvm flutter test test/database/`
+**Explanation**: Runs only tests in the specified directory. Useful for testing specific components like database operations, models, or widgets.
+
+#### fvm flutter test integration_test/
+**Purpose**: Run integration tests
+**Usage**: `fvm flutter test integration_test/`
+**Explanation**: Executes end-to-end integration tests that test complete workflows across the app.
+
+#### fvm flutter test --update-goldens
+**Purpose**: Update golden file tests for visual regression
+**Usage**: `fvm flutter test --update-goldens`
+**Explanation**: Updates golden files used for UI component visual regression testing. Run this when UI components are intentionally changed.
 
 #### fvm dart
 **Purpose**: Run Dart commands using the fvm-managed Dart version

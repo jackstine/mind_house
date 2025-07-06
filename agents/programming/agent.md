@@ -17,6 +17,159 @@ When completing todos, if you encounter any errors or make mistakes, please docu
 
 ## Development Workflow
 
+### Testing Requirements for All Development Tasks
+
+**CRITICAL**: Every todo item that involves development MUST include comprehensive testing. This is non-negotiable for the Mind Map application.
+
+#### Testing Types Required by Category
+
+**Category A (Environment Setup)**: 
+- Verification tests for environment configuration
+- Basic Flutter build tests
+- Device connectivity tests
+
+**Category B (Database Layer)**:
+- Unit tests for all database operations
+- Schema validation tests
+- Migration testing
+- Error handling tests
+- Performance tests for large datasets
+
+**Category C (Core Models)**:
+- Unit tests for all model classes
+- Repository pattern tests
+- Data validation tests
+- CRUD operation tests
+- UUID generation and handling tests
+
+**Category D (State Management - BLoC)**:
+- Unit tests for all BLoC classes
+- Event handling tests
+- State transition tests
+- Error state tests
+- Async operation tests
+
+**Category E (Core UI Components)**:
+- Widget tests for every component
+- Golden file tests for visual regression
+- Interaction tests (tap, input, selection)
+- Accessibility tests
+- Platform-specific tests (iOS/Android)
+
+**Category F (Page Components)**:
+- Widget tests for complete pages
+- Integration tests for page workflows
+- Navigation tests
+- State persistence tests
+- Form validation tests
+
+**Category G (Navigation)**:
+- Navigation flow tests
+- Deep linking tests
+- Back button handling tests
+- Tab switching tests
+- Lifecycle management tests
+
+**Category H (Business Logic)**:
+- End-to-end workflow tests
+- Tag suggestion algorithm tests
+- Search and filtering tests
+- Data consistency tests
+- Performance tests under load
+
+**Category I (Testing Infrastructure)**:
+- Test framework configuration tests
+- Mock data generation tests
+- Test database setup/teardown verification
+- CI/CD pipeline tests
+
+**Category J (Testing Implementation)**:
+- Comprehensive test suite execution
+- Coverage verification (target >80%)
+- BDD scenario tests with Gherkin
+- Integration test execution
+- Performance benchmark tests
+
+#### Testing Standards by Technology
+
+**Flutter Testing**:
+- Use flutter_test for widget tests
+- Use integration_test package for E2E tests
+- Implement golden file tests for UI consistency
+- BDD testing with gherkin package
+- Test on both iOS and Android platforms
+
+**SQLite Testing**:
+- Test database operations with in-memory databases
+- Validate schema migrations
+- Test data integrity constraints
+- Performance testing for tag queries
+- Concurrent access testing
+
+**BLoC Testing**:
+- Test all events and states
+- Mock repository dependencies
+- Test error handling and loading states
+- Verify state transitions
+- Test async operations and cancellation
+
+#### Testing Commands to Execute
+
+For every development task completion:
+```bash
+# Run all tests
+fvm flutter test
+
+# Run specific test files
+fvm flutter test test/database/
+fvm flutter test test/models/
+fvm flutter test test/widgets/
+
+# Run integration tests
+fvm flutter test integration_test/
+
+# Run with coverage
+fvm flutter test --coverage
+
+# Golden file testing
+fvm flutter test --update-goldens
+```
+
+#### Required Testing for Each Todo Category
+
+**When completing ANY todo item that involves code development:**
+
+1. **Write tests FIRST** (Test-Driven Development approach)
+2. **Implement the feature** to make tests pass
+3. **Run full test suite** to ensure no regressions
+4. **Verify test coverage** meets minimum requirements
+5. **Update golden files** if UI components changed
+6. **Document test scenarios** in learnings.md if complex
+
+#### Flutter App-Specific Testing Focus
+
+**Tag Input Component Testing**:
+- Tag suggestion algorithm accuracy
+- Autocomplete functionality
+- Tag chip creation and removal
+- Input validation and sanitization
+- Performance with large tag datasets
+
+**SQLite Database Testing**:
+- Information table CRUD operations
+- Tag table operations with usage counting
+- Junction table relationship integrity
+- Database migration scenarios
+- Concurrent access handling
+- Query performance optimization
+
+**Material Design Component Testing**:
+- Chip widget behavior and styling
+- Text input field validation
+- Navigation between pages
+- State management across app lifecycle
+- Platform-specific UI differences
+
 ### Environment Setup Tasks
 When completing environment setup tasks (Category A), follow these guidelines:
 
@@ -38,8 +191,49 @@ When completing environment setup tasks (Category A), follow these guidelines:
 Always use `fvm` prefix for Flutter commands:
 - `fvm flutter doctor` - Check Flutter installation
 - `fvm flutter devices` - List available devices
-- `fvm flutter test` - Run tests
+- `fvm flutter test` - Run tests (REQUIRED for every development task)
+- `fvm flutter test --coverage` - Run tests with coverage report
+- `fvm flutter test test/database/` - Run specific test directory
+- `fvm flutter test integration_test/` - Run integration tests
+- `fvm flutter test --update-goldens` - Update golden file tests
 - `fvm dart` - Run Dart commands
+
+### Testing-Specific Flutter Commands
+
+#### For Database Testing (Category B & C):
+```bash
+# Test database operations
+fvm flutter test test/database/database_helper_test.dart
+fvm flutter test test/models/
+fvm flutter test test/repositories/
+
+# Run with verbose output for debugging
+fvm flutter test --verbose test/database/
+```
+
+#### For Widget Testing (Category E & F):
+```bash
+# Test UI components
+fvm flutter test test/widgets/
+fvm flutter test test/pages/
+
+# Update visual regression tests
+fvm flutter test --update-goldens test/widgets/
+```
+
+#### For BLoC Testing (Category D):
+```bash
+# Test state management
+fvm flutter test test/blocs/
+fvm flutter test test/blocs/information_bloc_test.dart
+```
+
+#### For Integration Testing (Category H & J):
+```bash
+# Run end-to-end tests
+fvm flutter test integration_test/
+fvm flutter drive --target=test_driver/app.dart
+```
 
 ## File Management
 
@@ -67,11 +261,26 @@ When adding new instructions or processes:
 3. Keep track of successful commands and configurations
 
 ### After Completion
-1. Verify the task meets all success criteria
-2. Document any errors or learnings in `learnings.md`
-3. Update this file if new processes were discovered
-4. Mark the task as complete in the todo system
-5. **IMPORTANT**: When completing a task in the todo list, check it off with a checkmark ✅
+1. **CRITICAL**: Run all applicable tests for the completed feature
+2. Verify the task meets all success criteria including test coverage
+3. Document any errors or learnings in `learnings.md`
+4. Update this file if new processes were discovered
+5. **Run `fvm flutter test` to ensure no regressions**
+6. Mark the task as complete in the todo system
+7. **IMPORTANT**: When completing a task in the todo list, check it off with a checkmark ✅
+
+### Testing Verification Checklist
+Before marking any development todo as complete ✅:
+
+- [ ] Unit tests written and passing for new code
+- [ ] Widget tests created for any UI components
+- [ ] Integration tests updated if workflow changed
+- [ ] `fvm flutter test` runs without errors
+- [ ] Test coverage maintained or improved
+- [ ] Golden files updated if UI changed
+- [ ] Platform-specific testing completed (iOS & Android)
+- [ ] Performance tests added for database operations
+- [ ] Error handling scenarios tested
 
 ### Todo List Management
 - Always use checkmark ✅ when marking tasks as complete

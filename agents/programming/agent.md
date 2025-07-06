@@ -248,6 +248,26 @@ When adding new instructions or processes:
 3. Include specific commands and paths used
 4. Note success criteria for task completion
 
+### Git Commit Format Requirements
+
+**CRITICAL**: All commits must follow the specified format based on the type of change:
+
+#### Test Changes
+- **Format**: `TEST_CHANGE: [description]`
+- **When to use**: Every time you are about to run tests and you are changing test code
+- **Example**: `TEST_CHANGE: Add unit tests for Information repository CRUD operations`
+
+#### Code Changes  
+- **Format**: `CODE_CHANGE: [description]`
+- **When to use**: Every time you commit code that was developed (implementation code)
+- **Example**: `CODE_CHANGE: Implement Information repository with CRUD operations`
+
+#### Commit Workflow
+1. Write/modify tests → Commit with `TEST_CHANGE:`
+2. Implement code to pass tests → Commit with `CODE_CHANGE:`
+3. Run `fvm flutter test` to verify all tests pass
+4. Repeat cycle for next feature
+
 ## Task Completion Process
 
 ### Before Starting

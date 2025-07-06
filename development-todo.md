@@ -159,16 +159,26 @@ This todo list is organized by categories with clear dependencies to ensure prop
 **Dependencies**: A (Environment Setup)
 **Priority**: Medium
 
-- [ ] I1. Set up unit testing framework
-- [ ] I2. Set up widget testing framework
-- [ ] I3. Set up integration testing framework
+- [ ] I1. Set up unit testing framework with fvm flutter test
+- [ ] I2. Set up widget testing framework with flutter_test
+- [ ] I3. Set up integration testing framework with integration_test package
 - [ ] I4. Configure BDD testing with gherkin package
 - [ ] I5. Set up golden file testing for UI snapshots
 - [ ] I6. Configure test database setup and teardown
 - [ ] I7. Create test data factories and mocks
 - [ ] I8. Set up continuous integration testing
-- [ ] I9. Configure test coverage reporting
+- [ ] I9. Configure test coverage reporting with lcov
 - [ ] I10. Create testing utilities and helpers
+- [ ] I11. Set up headless testing environment for macOS
+- [ ] I12. Configure screenshot automation during testing (using integration_test)
+- [ ] I13. Set up performance testing infrastructure for memory and CPU usage
+- [ ] I14. Configure cross-platform testing for different macOS versions
+- [ ] I15. Set up accessibility testing framework for VoiceOver
+- [ ] I16. Configure test environment for different screen sizes and resolutions
+- [ ] I17. Set up database stress testing infrastructure
+- [ ] I18. Configure automated visual regression testing
+- [ ] I19. Set up test reporting dashboard for CI/CD
+- [ ] I20. Create test data generation scripts for large datasets
 
 ---
 
@@ -186,6 +196,21 @@ This todo list is organized by categories with clear dependencies to ensure prop
 - [ ] J8. Write integration tests for information creation flow
 - [ ] J9. Write integration tests for tag filtering flow
 - [ ] J10. Create golden file tests for all UI components
+- [ ] J11. Write headless integration tests with automated screenshots
+- [ ] J12. Implement performance tests for large tag datasets (1000+ tags)
+- [ ] J13. Create database stress tests for concurrent operations
+- [ ] J14. Write tests for macOS-specific behaviors (dark mode, system language)
+- [ ] J15. Implement accessibility tests for VoiceOver compatibility
+- [ ] J16. Create tests for app state persistence across backgrounding
+- [ ] J17. Write tests for data corruption scenarios and recovery
+- [ ] J18. Implement memory usage tests for large information datasets
+- [ ] J19. Create visual regression tests for UI consistency
+- [ ] J20. Write tests for edge cases (empty states, network issues)
+- [ ] J21. Implement automated screenshot comparison tests
+- [ ] J22. Create performance benchmarks for tag autocomplete functionality
+- [ ] J23. Write tests for database migration scenarios
+- [ ] J24. Implement tests for concurrent tag operations
+- [ ] J25. Create end-to-end workflow tests with screenshot documentation
 
 ---
 

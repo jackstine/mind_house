@@ -242,16 +242,67 @@ This document defines the UI components needed for the Mind Map application, foc
 ## Testing Requirements
 
 ### Component Testing
-- Unit tests for each component
-- Interaction testing for complex components
-- Accessibility testing with screen readers
-- Performance testing for list components
+- Unit tests for each component with proper test identifiers
+- Interaction testing for complex components (tap, swipe, input)
+- Accessibility testing with screen readers (VoiceOver on macOS)
+- Performance testing for list components under load
+- Visual regression testing with golden files
+- Memory usage testing for components with large datasets
 
 ### Integration Testing
-- Page-level component interaction
-- Navigation between pages
-- Data flow between components
-- State management testing
+- Page-level component interaction with screenshot automation
+- Navigation between pages with state verification
+- Data flow between components with mock data
+- State management testing with BLoC pattern
+- Cross-platform testing for different macOS versions
+- Headless testing with automated screenshot capture
+
+### Testing-Specific Component Requirements
+
+#### 21. Test Automation Components
+**Purpose**: Enable automated testing and screenshot capture
+**Features**:
+- Test identifier attributes for all interactive elements
+- Automated screenshot capture points
+- Test data injection capabilities
+- Mock data providers for isolated testing
+- Performance monitoring hooks
+
+#### 22. Test State Management
+**Purpose**: Manage application state during testing
+**Features**:
+- Test-specific state providers
+- Mock BLoC implementations
+- Test database setup/teardown
+- State reset utilities
+- Test data factories
+
+#### 23. Visual Testing Components
+**Purpose**: Support visual regression testing
+**Features**:
+- Screenshot comparison utilities
+- Visual diff reporting
+- Test artifact management
+- Golden file generation
+- Cross-platform visual consistency checks
+
+#### 24. Performance Testing Components
+**Purpose**: Monitor and test performance metrics
+**Features**:
+- Memory usage tracking
+- CPU usage monitoring
+- Database operation timing
+- UI rendering performance metrics
+- Tag autocomplete response time measurement
+
+#### 25. Accessibility Testing Components
+**Purpose**: Ensure accessibility compliance
+**Features**:
+- VoiceOver navigation testing
+- Keyboard navigation verification
+- Color contrast validation
+- Touch target size verification
+- Screen reader compatibility testing
 
 ## Documentation Standards
 

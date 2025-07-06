@@ -33,9 +33,22 @@ the following is a set of tasks that can be performed from time to time.
   - Iterate on plan based on user feedback
 - **Output**: Detailed implementation plan
 
-### Implementation (Future)
-- **Objective**: Build the application according to the plan
-- **Activities**: TBD based on completed plan
+### Development Todo List Creation
+- **Objective**: Create comprehensive, dependency-aware todo lists for application development
+- **Activities**:
+  - Analyze all design documents in `design-docs/` folder
+  - Create categorized todo lists with clear dependencies
+  - Ensure each task is one finite unit of work (1-4 hours)
+  - Organize by priority, dependencies, and grouping
+  - Reference components.md, data-schema-design.md, and other design docs
+- **Output**: Structured development todo list with dependency mapping
+
+### Implementation
+- **Objective**: Build the application according to the plan and todo list
+- **Activities**: 
+  - Follow dependency-aware todo list
+  - Complete categories in proper order
+  - Ensure all dependencies are met before starting new categories
 
 ## Key Files
 
@@ -46,7 +59,7 @@ the following is a set of tasks that can be performed from time to time.
 - **plan.md**: Detailed application architecture and implementation plan
 - **backlog.md**: Features and tasks planned for later phases
 - **components.md**: UI components needed for the application
-- **planning-todo.md**: Planning checklist with tasks marked as `- [ ]` (pending) or `- [✅]` (completed)
+- **development-todo.md**: Comprehensive development checklist with dependencies and categories
 
 ## Process Notes
 
@@ -83,3 +96,45 @@ the following is a set of tasks that can be performed from time to time.
 - Update `plan.md` with all new information received
 - When completing a todo file, move it to `previous-todos/` folder
 - When user asks questions not in Q&A.md, document in `answered.md`
+
+## Development Todo List Methodology
+
+### Category Organization
+Development tasks should be organized into logical categories that group related work together:
+- **Environment Setup**: Development environment configuration
+- **Database Layer**: Database schema and data access
+- **Core Models**: Data models and business entities
+- **State Management**: Application state management (BLoC pattern)
+- **Core UI Components**: Reusable UI widgets
+- **Page Components**: Screen-level components
+- **Navigation**: App navigation and routing
+- **Business Logic**: Feature integration and workflows
+- **Testing Infrastructure**: Testing framework setup
+- **Testing Implementation**: Writing and executing tests
+- **Optimization**: Performance and size optimization
+- **Deployment**: Build and release processes
+
+### Dependency Management
+Each category must clearly define its dependencies:
+- **Format**: "Category X depends on (A, B, C)"
+- **Rule**: Cannot start work in a category until ALL dependencies are 100% complete
+- **Example**: "F (Page Components) depends on A, C, D, E"
+
+### Task Granularity
+Each individual task should be:
+- **Finite**: One specific, completable unit of work
+- **Timeboxed**: 1-4 hours of work maximum
+- **Testable**: Clear definition of "done"
+- **Independent**: Can be completed without waiting for other tasks in same category
+
+### Priority Classification
+- **Critical**: Must be completed for basic functionality
+- **High**: Important for user experience
+- **Medium**: Enhances functionality
+- **Low**: Nice-to-have features
+
+### Development Flow
+1. **Complete all tasks in a category before moving to dependent categories**
+2. **Tasks within a category can be worked on in parallel**
+3. **Regular testing and validation after each category completion**
+4. **Code reviews should happen after completing each category**

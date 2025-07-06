@@ -1,0 +1,1 @@
+- when you use a new command in the terminal, place it in a file so that it is recorded.

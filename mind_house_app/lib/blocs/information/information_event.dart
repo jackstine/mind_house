@@ -62,3 +62,12 @@ class FilterInformationByTags extends InformationEvent {
   @override
   List<Object?> get props => [tagIds];
 }
+
+class LoadInformationById extends InformationEvent {
+  final String informationId;
+
+  const LoadInformationById(this.informationId);
+
+  @override
+  List<Object?> get props => [informationId];
+}

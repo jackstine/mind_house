@@ -56,3 +56,12 @@ class InformationDeleted extends InformationState {
   @override
   List<Object?> get props => [informationId];
 }
+
+class InformationSingleLoaded extends InformationState {
+  final Information information;
+
+  const InformationSingleLoaded(this.information);
+
+  @override
+  List<Object?> get props => [information];
+}

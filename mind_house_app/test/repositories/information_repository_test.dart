@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:mind_house_app/database/database_helper.dart';
 import 'package:mind_house_app/models/information.dart';
 import 'package:mind_house_app/repositories/information_repository.dart';
 import 'package:mind_house_app/exceptions/database_exception.dart';

@@ -22,6 +22,7 @@ class InformationBloc extends Bloc<InformationEvent, InformationState> {
     on<DeleteInformation>(_onDeleteInformation);
     on<SearchInformation>(_onSearchInformation);
     on<FilterInformationByTags>(_onFilterInformationByTags);
+    on<LoadInformationById>(_onLoadInformationById);
   }
 
   Future<void> _onLoadAllInformation(
@@ -131,6 +132,23 @@ class InformationBloc extends Bloc<InformationEvent, InformationState> {
       //   informationId: informationId,
       //   tagId: tag.id!,
       // ));
+    }
+  }
+
+  Future<void> _onLoadInformationById(
+    LoadInformationById event,
+    Emitter<InformationState> emit,
+  ) async {
+    emit(InformationLoading());
+    try {
+      final information = await _informationRepository.getById(event.informationId);
+      if (information != null) {
+        emit(InformationSingleLoaded(information));
+      } else {
+        emit(InformationError('Information not found'));
+      }
+    } catch (e) {
+      emit(InformationError('Failed to load information: $e'));
     }
   }
 }

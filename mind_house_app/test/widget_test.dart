@@ -1,30 +1,60 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// This is a basic Flutter widget test for the Mind House app.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:mind_house_app/main.dart';
+import 'package:mind_house_app/repositories/information_repository.dart';
+import 'package:mind_house_app/repositories/tag_repository.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  setUpAll(() {
+    // Initialize FFI for testing
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
+  testWidgets('Mind House app smoke test', (WidgetTester tester) async {
+    // Create in-memory database for testing
+    final database = await openDatabase(
+      inMemoryDatabasePath,
+      version: 1,
+      onCreate: (db, version) async {
+        // Create test database schema (simplified)
+        await db.execute('''
+          CREATE TABLE information (
+            id TEXT PRIMARY KEY,
+            content TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            color TEXT,
+            usage_count INTEGER DEFAULT 0
+          )
+        ''');
+      },
+    );
+
+    final informationRepository = InformationRepository(database);
+    final tagRepository = TagRepository(database);
+
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(MindHouseApp(
+      informationRepository: informationRepository,
+      tagRepository: tagRepository,
+    ));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify the app loads with proper navigation
+    expect(find.text('Store Information'), findsOneWidget);
+    expect(find.text('Store'), findsOneWidget);
+    expect(find.text('Browse'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await database.close();
   });
 }

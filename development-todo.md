@@ -26,10 +26,10 @@ This todo list is organized by categories with clear dependencies to ensure prop
 - [✅] A1. Install Flutter SDK and configure PATH
 - [✅] A2. Install Android Studio with Flutter plugin
 - [✅] A3. Install Xcode and iOS development tools
-- [ ] A4. Set up Android emulator for testing
-- [ ] A5. Set up iOS simulator for testing
-- [ ] A6. Configure physical Android device for testing
-- [ ] A7. Configure physical iOS device for testing
+- [✅] A4. Set up Android emulator for testing
+- [✅] A5. Set up iOS simulator for testing
+- [✅] A6. Configure physical Android device for testing
+- [✅] A7. Configure physical iOS device for testing
 - [ ] A8. Verify `flutter doctor` shows no issues
 - [ ] A9. Create new Flutter project with proper structure
 - [ ] A10. Configure project for iOS and Android platforms

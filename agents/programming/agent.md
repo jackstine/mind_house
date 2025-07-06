@@ -71,6 +71,13 @@ When adding new instructions or processes:
 2. Document any errors or learnings in `learnings.md`
 3. Update this file if new processes were discovered
 4. Mark the task as complete in the todo system
+5. **IMPORTANT**: When completing a task in the todo list, check it off with a checkmark ✅
+
+### Todo List Management
+- Always use checkmark ✅ when marking tasks as complete
+- Format: `- [✅] Task description`
+- This provides clear visual indication of completed work
+- Helps track progress across the development workflow
 
 ## Best Practices
 

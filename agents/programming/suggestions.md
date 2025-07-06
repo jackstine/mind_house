@@ -1,3 +1,4 @@
 - when you use a new command in the terminal, place it in a file so that it is recorded.
 - in the planning stages we need it to think of all the packages that it will need in the project, and add a todo to all all of these packages.  As one of the first things to do in the project.
 - did not even do code layout design structure at all.
+- when creating a UI based application, make sure that it creates the skeleton layout first, so that we can move between pages and such.  We might want to make sure that there is a way to see the changes to UI components as they happen, and ask to do a play book type of development or something.

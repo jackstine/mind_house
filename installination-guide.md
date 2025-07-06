@@ -23,3 +23,5 @@ Then re-run:
 # install cocoapods
 `brew install cocoapods`
 
+# installing context 7
+- `claude mcp add --transport http context7 https://mcp.context7.com/mcp`

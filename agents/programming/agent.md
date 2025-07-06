@@ -279,15 +279,18 @@ When adding new instructions or processes:
 1. Document each step taken
 2. Note any errors or unexpected behavior
 3. Keep track of successful commands and configurations
+4. **CRITICAL**: Make sure that the application builds at the end of every completed todo sub section
 
 ### After Completion
 1. **CRITICAL**: Run all applicable tests for the completed feature
-2. Verify the task meets all success criteria including test coverage
-3. Document any errors or learnings in `learnings.md`
+2. **CRITICAL**: Verify the application builds successfully (`fvm flutter build` or `fvm flutter run`)
+3. **CRITICAL**: Document any errors or learnings in `learnings.md` when you make an error or when a test fails
 4. Update this file if new processes were discovered
 5. **Run `fvm flutter test` to ensure no regressions**
 6. Mark the task as complete in the todo system
 7. **IMPORTANT**: When completing a task in the todo list, check it off with a checkmark ✅
+8. **REQUIRED**: Commit every time you complete a sub step in the `development-todo.md` file
+9. **REQUIRED**: Check off completed tasks in the development todo list
 
 ### Testing Verification Checklist
 Before marking any development todo as complete ✅:
@@ -307,6 +310,20 @@ Before marking any development todo as complete ✅:
 - Format: `- [✅] Task description`
 - This provides clear visual indication of completed work
 - Helps track progress across the development workflow
+- **MANDATORY**: Check off the tasks that you have already performed in the development-todo.md file
+- **MANDATORY**: Commit after completing each sub step in the development-todo.md file
+
+### Build Verification Requirements
+- **CRITICAL**: The application MUST build successfully at the end of every completed todo sub section
+- Run `fvm flutter build` or `fvm flutter run` to verify build success
+- If build fails, document the error in `learnings.md` and fix before proceeding
+- Never mark a todo sub section as complete if the application doesn't build
+
+### Error and Learning Documentation Requirements
+- **MANDATORY**: Populate the `learnings.md` file whenever you make an error
+- **MANDATORY**: Document in `learnings.md` when any test fails
+- Include the specific error, context, and solution
+- This builds institutional knowledge for future development
 
 ## Best Practices
 
@@ -321,3 +338,25 @@ Before marking any development todo as complete ✅:
 - Note macOS-specific considerations
 - Document both successful and failed approaches
 - Update instructions based on new discoveries
+
+## Additional Development Workflow Requirements
+
+### Command Recording
+- When you use a new terminal command, record it in the appropriate documentation file
+- This helps build a reference of useful commands for the project
+
+### Planning Stage Requirements
+- In the planning stages, identify ALL packages that will be needed in the project
+- Add a todo item to install all of these packages as one of the first things to do
+- This prevents package dependency issues later in development
+
+### UI Development Approach
+- When creating a UI-based application, create the skeleton layout first
+- Ensure you can move between pages before implementing detailed functionality
+- Consider implementing a playbook-style development approach
+- This allows seeing UI component changes as they happen and provides better development feedback
+
+### Code Layout Design
+- Always perform code layout design structure planning
+- This was identified as missing in previous projects
+- Plan the overall architecture before starting implementation

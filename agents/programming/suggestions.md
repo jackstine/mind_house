@@ -2,3 +2,4 @@
 - in the planning stages we need it to think of all the packages that it will need in the project, and add a todo to all all of these packages.  As one of the first things to do in the project.
 - did not even do code layout design structure at all.
 - when creating a UI based application, make sure that it creates the skeleton layout first, so that we can move between pages and such.  We might want to make sure that there is a way to see the changes to UI components as they happen, and ask to do a play book type of development or something.
+- create a linter for the application and have the worker make changes that abide by the rules of the linter.

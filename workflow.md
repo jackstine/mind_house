@@ -69,10 +69,17 @@ the following is a set of tasks that can be performed from time to time.
 
 ## File Management Rules
 
+### Folder Organization
+- **design-docs/**: All design documents should be placed in this folder
+- **previous-todos/**: Completed todo files should be moved here when finished
+- **answered.md**: Questions not in Q&A.md and their answers go here
+
 ### Backlog Management
 - Use `backlog.md` for all future/deferred features
 
 ### Documentation Requirements
-- Create design documents for major features
+- Create design documents for major features in `design-docs/` folder
 - Maintain component documentation in `components.md`
 - Update `plan.md` with all new information received
+- When completing a todo file, move it to `previous-todos/` folder
+- When user asks questions not in Q&A.md, document in `answered.md`

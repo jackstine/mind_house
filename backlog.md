@@ -99,6 +99,45 @@ This document contains features, tasks, and components that are planned for late
 - Auto-tagging based on content
 - Tag relationships
 
+### Tag Editing and Management
+**Description**: Advanced tag management in edit mode
+- Click tag container to enter edit mode
+- Tags show X button for removal when in edit mode
+- Re-render tags with removal capability
+- Swipe to remove tags
+- Bulk tag operations
+
+### Quick Search Component
+**Description**: Enhanced search functionality
+- Quick sort component for tag search results
+- Limit to top 10 search results
+- Advanced search filtering options
+- Search result optimization
+
+### User Preferences System
+**Description**: Customizable app settings
+- Default page selection
+- Background return time configuration
+- Theme preferences (dark/light mode)
+- Auto-save settings
+- Tag suggestion toggles
+- Accessibility preferences
+
+### Data Encryption
+**Description**: Enhanced security features
+- Local data encryption
+- Secure key management
+- Privacy protection
+- Encrypted exports
+
+### Cross-Platform Data Syncing
+**Description**: Multi-device synchronization
+- Sync data between multiple devices
+- Desktop application support
+- Conflict resolution for simultaneous edits
+- Cloud storage integration
+- Real-time synchronization
+
 ### Mobile Platform Features
 **Description**: Platform-specific enhancements
 - Widget support

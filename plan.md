@@ -31,15 +31,20 @@
 - Cross-platform mobile deployment (iOS and Android)
 
 ### Technology Stack
-**Frontend Framework**: TBD (Flutter vs React Native)
-- Local database: SQLite
-- State management: Framework-specific solution
-- UI components: Tag/chip-focused design system
+**Frontend Framework**: Flutter (Selected)
+- Local database: SQLite (sqflite package)
+- State management: BLoC pattern
+- UI components: Material Design Components (built-in chips)
+- Development: Material Design 3 chips, built-in Flutter widgets
+
+**Excluded Libraries**:
+- flutter_tagging_plus: Explicitly avoided per requirements
+- Other third-party tagging libraries: Using built-in Material Design
 
 **Backend (Future Phase)**: 
-- Framework: Golang with Gin
-- Database: PostgreSQL with GORM
-- API: RESTful endpoints for sync
+- Framework: Golang with Gin (deferred to backlog)
+- Database: PostgreSQL with GORM (deferred to backlog)
+- API: RESTful endpoints for sync (deferred to backlog)
 
 ## Detailed Design
 
@@ -120,10 +125,10 @@
 
 ## Database Design
 **Local Storage (SQLite)**:
-- Information items table (id, content, created_at, updated_at)
-- Tags table (id, name, color, frequency)
-- Information_tags junction table (information_id, tag_id)
-- User preferences table
+- Information items table (id, content, created_at, updated_at, is_deleted)
+- Tags table (id, name, display_name, color, usage_count, created_at, last_used_at)
+- Information_tags junction table (information_id, tag_id, created_at)
+- User preferences: Moved to backlog (using hardcoded defaults)
 
 ## Risk Assessment
 

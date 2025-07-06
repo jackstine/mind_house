@@ -15,6 +15,24 @@
 21. Should we implement data encryption for user privacy?
 
 22. How should we handle data synchronization conflicts between devices?
+   - No cross-platform syncing initially (put in backlog for future)
+   - Focus on single-device offline-first approach
+
+23. Should the app support data export/import features?
+   - Yes, but moved to backlog for Phase 2
+
+24. What authentication method should we use?
+   - No authentication required for Phase 1 (offline-only)
+
+25. Should we implement data encryption for user privacy?
+   - Put data encryption in backlog for future consideration
+
+26. Which Flutter libraries should we use for development?
+   - Material Design Components for chips and UI
+   - BLoC for state management
+   - SQLite for local database
+   - NO flutter_tagging_plus (explicitly avoid this package)
+   - Use Flutter's built-in components and Material Design
 
 ## Answered
 

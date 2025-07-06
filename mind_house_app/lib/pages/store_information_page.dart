@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mind_house_app/blocs/information/information_bloc.dart';
 import 'package:mind_house_app/blocs/information/information_event.dart';
+import 'package:mind_house_app/blocs/information/information_state.dart';
+import 'package:mind_house_app/blocs/tag_suggestion/tag_suggestion_bloc.dart';
+import 'package:mind_house_app/widgets/content_input.dart';
+import 'package:mind_house_app/widgets/tag_input.dart';
+import 'package:mind_house_app/widgets/tag_chip.dart';
+import 'package:mind_house_app/widgets/save_button.dart';
+import 'package:mind_house_app/models/tag.dart';
 
 class StoreInformationPage extends StatefulWidget {
   const StoreInformationPage({super.key});
@@ -14,6 +21,7 @@ class _StoreInformationPageState extends State<StoreInformationPage> {
   final _contentController = TextEditingController();
   final _tagController = TextEditingController();
   final List<String> _selectedTags = [];
+  SaveButtonState _saveButtonState = SaveButtonState.idle;
 
   @override
   void dispose() {
@@ -23,37 +31,40 @@ class _StoreInformationPageState extends State<StoreInformationPage> {
   }
 
   void _saveInformation() {
-    if (_contentController.text.trim().isNotEmpty) {
-      context.read<InformationBloc>().add(
-        CreateInformation(
-          content: _contentController.text.trim(),
-          tagNames: List.from(_selectedTags),
-        ),
-      );
-      
-      // Clear form after saving
-      _contentController.clear();
-      _selectedTags.clear();
-      setState(() {});
-      
-      // Show success message
+    if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Information saved successfully!'),
-          backgroundColor: Colors.green,
+          content: Text('Please enter some content before saving'),
+          backgroundColor: Colors.orange,
         ),
       );
+      return;
     }
+
+    setState(() {
+      _saveButtonState = SaveButtonState.loading;
+    });
+
+    context.read<InformationBloc>().add(
+      CreateInformation(
+        content: _contentController.text.trim(),
+        tagNames: List.from(_selectedTags),
+      ),
+    );
   }
 
-  void _addTag() {
-    final tagText = _tagController.text.trim();
+  void _addTag(String tagName) {
+    final tagText = tagName.trim();
     if (tagText.isNotEmpty && !_selectedTags.contains(tagText)) {
       setState(() {
         _selectedTags.add(tagText);
-        _tagController.clear();
       });
     }
+  }
+
+  void _addTagFromInput() {
+    _addTag(_tagController.text);
+    _tagController.clear();
   }
 
   void _removeTag(String tag) {
@@ -110,12 +121,12 @@ class _StoreInformationPageState extends State<StoreInformationPage> {
                       hintText: 'Add a tag...',
                       border: OutlineInputBorder(),
                     ),
-                    onSubmitted: (_) => _addTag(),
+                    onSubmitted: (_) => _addTagFromInput(),
                   ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _addTag,
+                  onPressed: _addTagFromInput,
                   child: const Text('Add'),
                 ),
               ],

@@ -156,4 +156,31 @@ class InformationRepository {
       throw RepositoryException('Failed to get information by date range: $e');
     }
   }
+
+  /// Get information by tag IDs (requires information_tags table)
+  Future<List<Information>> getByTagIds(List<int> tagIds) async {
+    try {
+      if (tagIds.isEmpty) {
+        return [];
+      }
+
+      // For now, return all information since we don't have information_tags table yet
+      // TODO: Implement proper join query when information_tags table is added
+      /*
+      final placeholders = tagIds.map((_) => '?').join(',');
+      final results = await _database.rawQuery('''
+        SELECT DISTINCT i.*
+        FROM information i
+        INNER JOIN information_tags it ON i.id = it.information_id
+        WHERE it.tag_id IN ($placeholders)
+        ORDER BY i.created_at DESC
+      ''', tagIds);
+      */
+      
+      // Temporary implementation: return all information
+      return await getAll();
+    } catch (e) {
+      throw RepositoryException('Failed to get information by tag IDs: $e');
+    }
+  }
 }

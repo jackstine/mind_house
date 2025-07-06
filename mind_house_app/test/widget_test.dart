@@ -6,6 +6,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:mind_house_app/main.dart';
 import 'package:mind_house_app/repositories/information_repository.dart';
 import 'package:mind_house_app/repositories/tag_repository.dart';
+import 'package:mind_house_app/services/information_service.dart';
+import 'package:mind_house_app/services/tag_service.dart';
 
 void main() {
   setUpAll(() {
@@ -42,11 +44,21 @@ void main() {
 
     final informationRepository = InformationRepository(database);
     final tagRepository = TagRepository(database);
+    
+    // Initialize services
+    final tagService = TagService(tagRepository);
+    final informationService = InformationService(
+      informationRepository: informationRepository,
+      tagRepository: tagRepository,
+      tagService: tagService,
+    );
 
     // Build our app and trigger a frame.
     await tester.pumpWidget(MindHouseApp(
       informationRepository: informationRepository,
       tagRepository: tagRepository,
+      informationService: informationService,
+      tagService: tagService,
     ));
 
     // Verify the app loads with proper navigation

@@ -5,16 +5,24 @@ import 'package:mind_house_app/models/information.dart';
 import 'package:mind_house_app/models/tag.dart';
 import 'package:mind_house_app/repositories/information_repository.dart';
 import 'package:mind_house_app/repositories/tag_repository.dart';
+import 'package:mind_house_app/services/information_service.dart';
+import 'package:mind_house_app/services/tag_service.dart';
 
 class InformationBloc extends Bloc<InformationEvent, InformationState> {
   final InformationRepository _informationRepository;
   final TagRepository _tagRepository;
+  final InformationService _informationService;
+  final TagService _tagService;
 
   InformationBloc({
     required InformationRepository informationRepository,
     required TagRepository tagRepository,
+    required InformationService informationService,
+    required TagService tagService,
   })  : _informationRepository = informationRepository,
         _tagRepository = tagRepository,
+        _informationService = informationService,
+        _tagService = tagService,
         super(InformationInitial()) {
     on<LoadAllInformation>(_onLoadAllInformation);
     on<CreateInformation>(_onCreateInformation);
@@ -42,15 +50,23 @@ class InformationBloc extends Bloc<InformationEvent, InformationState> {
     CreateInformation event,
     Emitter<InformationState> emit,
   ) async {
+    if (event.content.trim().isEmpty) {
+      emit(InformationError('Content cannot be empty'));
+      return;
+    }
+
     emit(InformationLoading());
     try {
-      final information = Information(content: event.content);
-      final createdInfo = await _informationRepository.create(information);
-      
-      // Handle tags
-      await _handleTags(event.tagNames, createdInfo.id);
+      // Use the service for business logic
+      final createdInfo = await _informationService.createInformation(
+        content: event.content,
+        tagNames: event.tagNames,
+      );
       
       emit(InformationCreated(createdInfo));
+      
+      // Reload all information to update the list
+      add(LoadAllInformation());
     } catch (e) {
       emit(InformationError('Failed to create information: $e'));
     }
@@ -60,14 +76,23 @@ class InformationBloc extends Bloc<InformationEvent, InformationState> {
     UpdateInformation event,
     Emitter<InformationState> emit,
   ) async {
+    if (event.information.content.trim().isEmpty) {
+      emit(InformationError('Content cannot be empty'));
+      return;
+    }
+
     emit(InformationLoading());
     try {
-      final updatedInfo = await _informationRepository.update(event.information);
-      
-      // Handle tags (this would require implementing tag association repository)
-      await _handleTags(event.tagNames, updatedInfo.id);
+      // Use the service for business logic
+      final updatedInfo = await _informationService.updateInformation(
+        information: event.information,
+        tagNames: event.tagNames,
+      );
       
       emit(InformationUpdated(updatedInfo));
+      
+      // Reload to reflect changes
+      add(LoadAllInformation());
     } catch (e) {
       emit(InformationError('Failed to update information: $e'));
     }
@@ -79,8 +104,12 @@ class InformationBloc extends Bloc<InformationEvent, InformationState> {
   ) async {
     emit(InformationLoading());
     try {
-      await _informationRepository.delete(event.informationId);
+      // Use the service for business logic
+      await _informationService.deleteInformation(event.informationId);
       emit(InformationDeleted(event.informationId));
+      
+      // Reload to reflect deletion
+      add(LoadAllInformation());
     } catch (e) {
       emit(InformationError('Failed to delete information: $e'));
     }
@@ -90,9 +119,20 @@ class InformationBloc extends Bloc<InformationEvent, InformationState> {
     SearchInformation event,
     Emitter<InformationState> emit,
   ) async {
+    final query = event.query.trim();
+    
+    // If empty query, load all information
+    if (query.isEmpty) {
+      add(LoadAllInformation());
+      return;
+    }
+
     emit(InformationLoading());
     try {
-      final information = await _informationRepository.searchByContent(event.query);
+      // Use the service for advanced search
+      final information = await _informationService.searchInformation(
+        query: query,
+      );
       emit(InformationLoaded(information));
     } catch (e) {
       emit(InformationError('Failed to search information: $e'));

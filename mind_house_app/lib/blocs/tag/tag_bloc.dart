@@ -38,14 +38,31 @@ class TagBloc extends Bloc<TagEvent, TagState> {
     CreateTag event,
     Emitter<TagState> emit,
   ) async {
+    final tagName = event.name.trim();
+    
+    if (tagName.isEmpty) {
+      emit(TagError('Tag name cannot be empty'));
+      return;
+    }
+
     emit(TagLoading());
     try {
+      // Check if tag already exists
+      final existingTag = await _tagRepository.findByName(tagName);
+      if (existingTag != null) {
+        emit(TagError('Tag "$tagName" already exists'));
+        return;
+      }
+
       final tag = Tag(
-        name: event.name,
+        name: tagName,
         color: event.color,
       );
       final createdTag = await _tagRepository.create(tag);
       emit(TagCreated(createdTag));
+      
+      // Reload all tags to update the list
+      add(LoadAllTags());
     } catch (e) {
       emit(TagError('Failed to create tag: $e'));
     }
@@ -70,8 +87,18 @@ class TagBloc extends Bloc<TagEvent, TagState> {
   ) async {
     emit(TagLoading());
     try {
+      // Check if tag exists before deletion
+      final existingTag = await _tagRepository.getById(event.tagId);
+      if (existingTag == null) {
+        emit(TagError('Tag not found'));
+        return;
+      }
+
       await _tagRepository.delete(event.tagId);
       emit(TagDeleted(event.tagId));
+      
+      // Reload to reflect deletion
+      add(LoadAllTags());
     } catch (e) {
       emit(TagError('Failed to delete tag: $e'));
     }
@@ -123,6 +150,13 @@ class TagBloc extends Bloc<TagEvent, TagState> {
     Emitter<TagState> emit,
   ) async {
     try {
+      // Check if tag exists
+      final existingTag = await _tagRepository.getById(event.tagId);
+      if (existingTag == null) {
+        emit(TagError('Tag not found'));
+        return;
+      }
+
       await _tagRepository.incrementUsageCount(event.tagId);
       emit(TagUsageIncremented(event.tagId));
     } catch (e) {

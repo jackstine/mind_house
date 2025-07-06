@@ -4,6 +4,10 @@ import 'package:mind_house_app/blocs/information/information_bloc.dart';
 import 'package:mind_house_app/blocs/information/information_event.dart';
 import 'package:mind_house_app/blocs/information/information_state.dart';
 import 'package:mind_house_app/models/information.dart';
+import 'package:mind_house_app/widgets/information_card.dart';
+import 'package:mind_house_app/widgets/empty_state.dart';
+import 'package:mind_house_app/widgets/loading_indicator.dart';
+import 'package:mind_house_app/widgets/content_input.dart';
 
 class InformationPage extends StatefulWidget {
   final String? informationId;
@@ -53,25 +57,15 @@ class _InformationPageState extends State<InformationPage> {
                 },
                 builder: (context, state) {
                   if (state is InformationLoading) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const LoadingIndicator(message: 'Loading information...');
                   } else if (state is InformationLoaded) {
                     if (state.information.isEmpty) {
-                      return const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.info_outline, size: 64, color: Colors.grey),
-                            SizedBox(height: 16),
-                            Text(
-                              'No information available',
-                              style: TextStyle(fontSize: 18, color: Colors.grey),
-                            ),
-                            Text(
-                              'Create some information first',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
+                      return EmptyInformationState(
+                        onCreateFirst: () {
+                          Navigator.pop(context);
+                          // Navigate to Store tab
+                          DefaultTabController.of(context)?.animateTo(0);
+                        },
                       );
                     }
                     
@@ -80,23 +74,15 @@ class _InformationPageState extends State<InformationPage> {
                       itemCount: state.information.length,
                       itemBuilder: (context, index) {
                         final information = state.information[index];
-                        return Card(
-                          child: ListTile(
-                            title: Text(
-                              information.content,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(
-                              'Created: ${_formatDate(information.createdAt)}',
-                            ),
-                            onTap: () {
-                              setState(() {
-                                _currentInformation = information;
-                              });
-                              Navigator.pop(context);
-                            },
-                          ),
+                        return InformationCard(
+                          information: information,
+                          showActions: false,
+                          onTap: () {
+                            setState(() {
+                              _currentInformation = information;
+                            });
+                            Navigator.pop(context);
+                          },
                         );
                       },
                     );

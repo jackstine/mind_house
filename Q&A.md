@@ -2,38 +2,6 @@
 
 ## Questions
 
-16. Which Flutter UI libraries should we consider for the mind map visualization?
-
-17. Which React Native UI libraries should we consider for the mind map visualization?
-
-18. What Golang web frameworks work best with PostgreSQL for mobile backends?
-
-19. Should the app support data export/import features?
-
-20. What authentication method should we use (email/password, social login, biometric)?
-
-21. Should we implement data encryption for user privacy?
-
-22. How should we handle data synchronization conflicts between devices?
-   - No cross-platform syncing initially (put in backlog for future)
-   - Focus on single-device offline-first approach
-
-23. Should the app support data export/import features?
-   - Yes, but moved to backlog for Phase 2
-
-24. What authentication method should we use?
-   - No authentication required for Phase 1 (offline-only)
-
-25. Should we implement data encryption for user privacy?
-   - Put data encryption in backlog for future consideration
-
-26. Which Flutter libraries should we use for development?
-   - Material Design Components for chips and UI
-   - BLoC for state management
-   - SQLite for local database
-   - NO flutter_tagging_plus (explicitly avoid this package)
-   - Use Flutter's built-in components and Material Design
-
 ## Answered
 
 1. What type of application are we building (web app, mobile app, desktop app, API, etc.)?
@@ -105,3 +73,23 @@
 20. How many pages should the application have?
    - Three core pages: Store Information, Information Page, List Information Page
    - No additional pages needed for MVP
+
+22. How should we handle data synchronization conflicts between devices?
+   - No cross-platform syncing initially (put in backlog for future)
+   - Focus on single-device offline-first approach
+
+23. Should the app support data export/import features?
+   - Yes, but moved to backlog for Phase 2
+
+24. What authentication method should we use?
+   - No authentication required for Phase 1 (offline-only)
+
+25. Should we implement data encryption for user privacy?
+   - Put data encryption in backlog for future consideration
+
+26. Which Flutter libraries should we use for development?
+   - Material Design Components for chips and UI
+   - BLoC for state management
+   - SQLite for local database
+   - NO flutter_tagging_plus (explicitly avoid this package)
+   - Use Flutter's built-in components and Material Design

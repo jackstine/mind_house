@@ -40,4 +40,11 @@ utilize everything made in the `tagging–design.md` file.
 We are going to use SqlLite we will not use NoSQL because we need high read capabilities.
 
 
-
+Answering questions
+16. I have outlined the fluter libraires to use
+17. We will not be using react libraries
+18.  Since we are going to use goal for the backend and we are going to wait for that feature set, let's not think about it nowno 
+19.  Yeah, it was support import features.  But let's put this on the backlog
+20.  No  authentication method  required
+21.  put data encryption in the backlog
+22. there is no cross platform sinking right now, but let's put that in the backlog if we plan to make desktop applicationion.  let's put that in the backlog that we need to have syncing data between multiple devices since we don't have back in yet we're not gonna implement this.

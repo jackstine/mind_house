@@ -50,7 +50,7 @@ CREATE TABLE tags (
     id TEXT PRIMARY KEY,  -- UUID for unique identification
     name TEXT NOT NULL UNIQUE,  -- Tag name (normalized)
     display_name TEXT NOT NULL,  -- Original case for display
-    color TEXT DEFAULT NULL,  -- Hex color code for visual categorization
+    color TEXT NOT NULL DEFAULT '#2196F3',  -- Hex color code for visual categorization
     usage_count INTEGER DEFAULT 0,  -- Frequency tracking for suggestions
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -60,13 +60,14 @@ CREATE TABLE tags (
 CREATE INDEX idx_tags_name ON tags(name);
 CREATE INDEX idx_tags_usage_count ON tags(usage_count DESC);
 CREATE INDEX idx_tags_last_used ON tags(last_used_at DESC);
+CREATE INDEX idx_tags_color ON tags(color);
 ```
 
 **Field Explanations**:
 - `id`: UUID for consistent identification
 - `name`: Lowercase, trimmed tag name for matching
 - `display_name`: Preserves user's original capitalization
-- `color`: Optional hex color for visual organization
+- `color`: **Required** hex color for visual categorization (default: Material Blue #2196F3)
 - `usage_count`: Tracks frequency for autocomplete ordering
 - `last_used_at`: Recent usage for intelligent suggestions
 
@@ -91,31 +92,15 @@ CREATE INDEX idx_information_tags_tag_id ON information_tags(tag_id);
 - `created_at`: Tracks when tag was added to information
 - Cascade deletes maintain referential integrity
 
-### User Preferences Table
-```sql
-CREATE TABLE user_preferences (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+### User Preferences Table (Moved to Backlog)
+**Note**: User preferences have been moved to the backlog for future implementation.
 
--- Initial preference values
-INSERT INTO user_preferences (key, value) VALUES 
-    ('app_version', '1.0.0'),
-    ('default_page', 'store_information'),
-    ('auto_save_enabled', 'true'),
-    ('background_return_time', '900'),  -- 15 minutes in seconds
-    ('tag_suggestions_enabled', 'true'),
-    ('dark_mode_enabled', 'false');
-```
-
-**Common Preferences**:
-- `app_version`: Track schema migrations
-- `default_page`: Customizable landing page
-- `auto_save_enabled`: Automatic saving preference
-- `background_return_time`: Configurable return behavior
-- `tag_suggestions_enabled`: Toggle autocomplete features
-- `dark_mode_enabled`: UI theme preference
+The core application will use sensible defaults without user customization in Phase 1:
+- App always opens to "Store Information" page
+- Returns to "Store Information" after 15 minutes in background
+- Tag suggestions always enabled
+- Auto-save always enabled
+- Default theme (light mode)
 
 ## Alternative Schema Considerations
 

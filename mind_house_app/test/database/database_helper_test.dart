@@ -57,5 +57,47 @@ void main() {
       expect(path, isNotEmpty);
       expect(path.endsWith('mind_house.db'), isTrue);
     });
+
+    test('Information table should be created with correct schema', () async {
+      final db = await databaseHelper.database;
+      
+      // Verify table exists
+      final tableExists = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='information'
+      ''');
+      expect(tableExists.isNotEmpty, isTrue);
+      
+      // Verify schema
+      final schemaValid = await databaseHelper.verifyInformationTableSchema();
+      expect(schemaValid, isTrue);
+      
+      // Verify columns
+      final columns = await databaseHelper.getInformationTableColumns();
+      expect(columns.contains('id'), isTrue);
+      expect(columns.contains('title'), isTrue);
+      expect(columns.contains('content'), isTrue);
+      expect(columns.contains('type'), isTrue);
+      expect(columns.contains('created_at'), isTrue);
+      expect(columns.contains('updated_at'), isTrue);
+    });
+
+    test('Information table indexes should be created', () async {
+      final db = await databaseHelper.database;
+      
+      // Check if indexes exist
+      final indexes = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='index' AND tbl_name='information'
+      ''');
+      
+      expect(indexes.isNotEmpty, isTrue);
+      
+      // Verify specific indexes
+      final indexNames = indexes.map((idx) => idx['name'] as String).toList();
+      expect(indexNames.contains('idx_information_title'), isTrue);
+      expect(indexNames.contains('idx_information_type'), isTrue);
+      expect(indexNames.contains('idx_information_created_at'), isTrue);
+    });
   });
 }

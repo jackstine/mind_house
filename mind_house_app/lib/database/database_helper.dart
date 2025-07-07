@@ -20,6 +20,21 @@ class DatabaseHelper {
   static const String tagsTable = 'tags';
   static const String informationTagsTable = 'information_tags';
 
+  // Information table columns
+  static const String colId = 'id';
+  static const String colTitle = 'title';
+  static const String colContent = 'content';
+  static const String colType = 'type';
+  static const String colSource = 'source';
+  static const String colUrl = 'url';
+  static const String colImportance = 'importance';
+  static const String colIsFavorite = 'is_favorite';
+  static const String colIsArchived = 'is_archived';
+  static const String colCreatedAt = 'created_at';
+  static const String colUpdatedAt = 'updated_at';
+  static const String colAccessedAt = 'accessed_at';
+  static const String colMetadata = 'metadata';
+
   // Singleton pattern
   DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
@@ -115,16 +130,53 @@ class DatabaseHelper {
     try {
       print('DatabaseHelper: Upgrading database from version $oldVersion to $newVersion');
       
-      // Will be implemented as needed for future schema changes
-      if (oldVersion < newVersion) {
-        // Handle migrations here
-        // Example: if (oldVersion < 2) { ... }
-        print('DatabaseHelper: Migration logic not yet implemented');
+      // Handle migrations step by step
+      for (int version = oldVersion + 1; version <= newVersion; version++) {
+        await _migrateToVersion(db, version);
       }
       
       print('DatabaseHelper: Database upgrade completed');
     } catch (e) {
       print('DatabaseHelper: Error upgrading database: $e');
+      rethrow;
+    }
+  }
+
+  /// Migrate to specific version
+  Future<void> _migrateToVersion(Database db, int version) async {
+    switch (version) {
+      case 1:
+        // Initial database creation - handled by onCreate
+        break;
+      case 2:
+        // Future migration example
+        await _migrateInformationTableToV2(db);
+        break;
+      default:
+        print('DatabaseHelper: No migration needed for version $version');
+    }
+  }
+
+  /// Example migration for information table (version 2)
+  Future<void> _migrateInformationTableToV2(Database db) async {
+    try {
+      print('DatabaseHelper: Migrating information table to version 2');
+      
+      // Example: Add new column
+      await db.execute('''
+        ALTER TABLE $informationTable 
+        ADD COLUMN reading_time INTEGER DEFAULT 0
+      ''');
+      
+      // Example: Create new index
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_reading_time 
+        ON $informationTable (reading_time)
+      ''');
+      
+      print('DatabaseHelper: Information table migration to v2 completed');
+    } catch (e) {
+      print('DatabaseHelper: Error migrating information table to v2: $e');
       rethrow;
     }
   }
@@ -153,9 +205,128 @@ class DatabaseHelper {
     }
   }
 
+  /// Verify information table exists and has correct schema
+  Future<bool> verifyInformationTableSchema() async {
+    try {
+      final db = await database;
+      
+      // Check if table exists
+      final tableExists = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='$informationTable'
+      ''');
+      
+      if (tableExists.isEmpty) {
+        print('DatabaseHelper: Information table does not exist');
+        return false;
+      }
+      
+      // Check table schema
+      final tableInfo = await db.rawQuery('PRAGMA table_info($informationTable)');
+      
+      // Expected columns
+      final expectedColumns = [
+        colId, colTitle, colContent, colType, colSource, colUrl, 
+        colImportance, colIsFavorite, colIsArchived, 
+        colCreatedAt, colUpdatedAt, colAccessedAt, colMetadata
+      ];
+      
+      final actualColumns = tableInfo.map((row) => row['name'] as String).toList();
+      
+      for (final expectedColumn in expectedColumns) {
+        if (!actualColumns.contains(expectedColumn)) {
+          print('DatabaseHelper: Missing column: $expectedColumn');
+          return false;
+        }
+      }
+      
+      print('DatabaseHelper: Information table schema verified');
+      return true;
+    } catch (e) {
+      print('DatabaseHelper: Error verifying information table schema: $e');
+      return false;
+    }
+  }
+
+  /// Get information table column names
+  Future<List<String>> getInformationTableColumns() async {
+    try {
+      final db = await database;
+      final tableInfo = await db.rawQuery('PRAGMA table_info($informationTable)');
+      return tableInfo.map((row) => row['name'] as String).toList();
+    } catch (e) {
+      print('DatabaseHelper: Error getting information table columns: $e');
+      return [];
+    }
+  }
+
+  /// Get database path
+  Future<String> getDatabasePath() async {
+    try {
+      Directory documentsDirectory = await getApplicationDocumentsDirectory();
+      return join(documentsDirectory.path, _databaseName);
+    } catch (e) {
+      print('DatabaseHelper: Error getting database path: $e');
+      return '';
+    }
+  }
+
   /// Create information table
   Future<void> _createInformationTable(Database db) async {
-    // Implementation will be added in B4
+    try {
+      print('DatabaseHelper: Creating information table');
+      
+      const String createInformationTableSQL = '''
+        CREATE TABLE $informationTable (
+          $colId TEXT PRIMARY KEY,
+          $colTitle TEXT NOT NULL,
+          $colContent TEXT NOT NULL,
+          $colType TEXT NOT NULL DEFAULT 'note',
+          $colSource TEXT,
+          $colUrl TEXT,
+          $colImportance INTEGER DEFAULT 0,
+          $colIsFavorite INTEGER DEFAULT 0,
+          $colIsArchived INTEGER DEFAULT 0,
+          $colCreatedAt TEXT NOT NULL,
+          $colUpdatedAt TEXT NOT NULL,
+          $colAccessedAt TEXT,
+          $colMetadata TEXT
+        )
+      ''';
+      
+      await db.execute(createInformationTableSQL);
+      
+      // Create indexes for better performance
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_title 
+        ON $informationTable ($colTitle)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_type 
+        ON $informationTable ($colType)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_created_at 
+        ON $informationTable ($colCreatedAt)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_importance 
+        ON $informationTable ($colImportance)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_favorite 
+        ON $informationTable ($colIsFavorite)
+      ''');
+      
+      print('DatabaseHelper: Information table created successfully');
+    } catch (e) {
+      print('DatabaseHelper: Error creating information table: $e');
+      rethrow;
+    }
   }
 
   /// Create tags table
@@ -190,9 +361,4 @@ class DatabaseHelper {
     return await databaseFactory.databaseExists(path);
   }
 
-  /// Get database path
-  Future<String> getDatabasePath() async {
-    Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    return join(documentsDirectory.path, _databaseName);
-  }
 }

@@ -254,5 +254,49 @@ void main() {
       expect(history.first['version_number'], equals(1));
       expect(history.first['version_name'], equals('Initial Schema'));
     });
+
+    test('Database indexes should be created and analyzed', () async {
+      final db = await databaseHelper.database;
+      
+      // Get all indexes
+      final allIndexes = await databaseHelper.getAllIndexes();
+      expect(allIndexes.isNotEmpty, isTrue);
+      
+      // Verify we have indexes for all main tables
+      final indexTables = allIndexes.map((idx) => idx['tbl_name'] as String).toSet();
+      expect(indexTables.contains('information'), isTrue);
+      expect(indexTables.contains('tags'), isTrue);
+      expect(indexTables.contains('information_tags'), isTrue);
+      
+      // Verify index analysis works
+      final analysis = await databaseHelper.analyzeIndexPerformance();
+      expect(analysis['total_indexes'], greaterThan(15)); // We should have many indexes
+      expect(analysis['indexes_by_table'], isNotEmpty);
+      expect(analysis['index_details'], isNotEmpty);
+      
+      // Verify specific table indexes
+      final infoIndexes = await databaseHelper.getTableIndexes('information');
+      expect(infoIndexes.length, greaterThan(5)); // Should have multiple indexes
+      
+      final tagIndexes = await databaseHelper.getTableIndexes('tags');
+      expect(tagIndexes.length, greaterThan(3)); // Should have multiple indexes
+    });
+
+    test('Database storage analysis should work', () async {
+      final storageAnalysis = await databaseHelper.analyzeDatabaseStorage();
+      
+      expect(storageAnalysis['total_size_bytes'], isA<int>());
+      expect(storageAnalysis['total_size_mb'], isA<String>());
+      expect(storageAnalysis['page_count'], isA<int>());
+      expect(storageAnalysis['page_size'], isA<int>());
+      expect(storageAnalysis['table_row_counts'], isA<Map>());
+      
+      // Should have row counts for all tables
+      final rowCounts = storageAnalysis['table_row_counts'] as Map;
+      expect(rowCounts.containsKey('information'), isTrue);
+      expect(rowCounts.containsKey('tags'), isTrue);
+      expect(rowCounts.containsKey('information_tags'), isTrue);
+      expect(rowCounts.containsKey('database_version_history'), isTrue);
+    });
   });
 }

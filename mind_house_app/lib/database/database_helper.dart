@@ -767,6 +767,165 @@ class DatabaseHelper {
     }
   }
 
+  /// Get all database indexes
+  Future<List<Map<String, dynamic>>> getAllIndexes() async {
+    try {
+      final db = await database;
+      return await db.rawQuery('''
+        SELECT name, sql, tbl_name 
+        FROM sqlite_master 
+        WHERE type = 'index' AND name NOT LIKE 'sqlite_%'
+        ORDER BY tbl_name, name
+      ''');
+    } catch (e) {
+      print('DatabaseHelper: Error getting indexes: $e');
+      return [];
+    }
+  }
+
+  /// Get indexes for a specific table
+  Future<List<Map<String, dynamic>>> getTableIndexes(String tableName) async {
+    try {
+      final db = await database;
+      return await db.rawQuery('''
+        SELECT name, sql, tbl_name 
+        FROM sqlite_master 
+        WHERE type = 'index' AND tbl_name = ? AND name NOT LIKE 'sqlite_%'
+        ORDER BY name
+      ''', [tableName]);
+    } catch (e) {
+      print('DatabaseHelper: Error getting table indexes: $e');
+      return [];
+    }
+  }
+
+  /// Analyze index usage and performance
+  Future<Map<String, dynamic>> analyzeIndexPerformance() async {
+    try {
+      final db = await database;
+      final indexes = await getAllIndexes();
+      
+      final analysis = <String, dynamic>{
+        'total_indexes': indexes.length,
+        'indexes_by_table': <String, int>{},
+        'index_details': <Map<String, dynamic>>[],
+      };
+      
+      for (final index in indexes) {
+        final tableName = index['tbl_name'] as String;
+        final indexName = index['name'] as String;
+        
+        // Count indexes per table
+        analysis['indexes_by_table'][tableName] = 
+            (analysis['indexes_by_table'][tableName] as int? ?? 0) + 1;
+        
+        // Get index info
+        final indexInfo = await db.rawQuery('PRAGMA index_info($indexName)');
+        
+        analysis['index_details'].add({
+          'name': indexName,
+          'table': tableName,
+          'columns': indexInfo.map((info) => info['name']).toList(),
+          'column_count': indexInfo.length,
+          'sql': index['sql'],
+        });
+      }
+      
+      return analysis;
+    } catch (e) {
+      print('DatabaseHelper: Error analyzing index performance: $e');
+      return {
+        'error': e.toString(),
+        'total_indexes': 0,
+        'indexes_by_table': <String, int>{},
+        'index_details': <Map<String, dynamic>>[],
+      };
+    }
+  }
+
+  /// Rebuild all indexes (maintenance operation)
+  Future<void> rebuildAllIndexes() async {
+    try {
+      final db = await database;
+      print('DatabaseHelper: Starting index rebuild process');
+      
+      await db.execute('REINDEX');
+      
+      print('DatabaseHelper: All indexes rebuilt successfully');
+    } catch (e) {
+      print('DatabaseHelper: Error rebuilding indexes: $e');
+      rethrow;
+    }
+  }
+
+  /// Analyze database size and storage
+  Future<Map<String, dynamic>> analyzeDatabaseStorage() async {
+    try {
+      final db = await database;
+      
+      // Get page count and page size
+      final pageCountResult = await db.rawQuery('PRAGMA page_count');
+      final pageSizeResult = await db.rawQuery('PRAGMA page_size');
+      
+      final pageCount = pageCountResult.first['page_count'] as int? ?? 0;
+      final pageSize = pageSizeResult.first['page_size'] as int? ?? 0;
+      final totalSize = pageCount * pageSize;
+      
+      // Get table sizes
+      final tables = [informationTable, tagsTable, informationTagsTable, _versionTableName];
+      final tableSizes = <String, int>{};
+      
+      for (final table in tables) {
+        try {
+          final result = await db.rawQuery('SELECT COUNT(*) as count FROM $table');
+          tableSizes[table] = result.first['count'] as int? ?? 0;
+        } catch (e) {
+          tableSizes[table] = 0;
+        }
+      }
+      
+      return {
+        'total_size_bytes': totalSize,
+        'total_size_mb': (totalSize / (1024 * 1024)).toStringAsFixed(2),
+        'page_count': pageCount,
+        'page_size': pageSize,
+        'table_row_counts': tableSizes,
+      };
+    } catch (e) {
+      print('DatabaseHelper: Error analyzing database storage: $e');
+      return {
+        'error': e.toString(),
+        'total_size_bytes': 0,
+        'total_size_mb': '0.00',
+        'page_count': 0,
+        'page_size': 0,
+        'table_row_counts': <String, int>{},
+      };
+    }
+  }
+
+  /// Optimize database performance
+  Future<void> optimizeDatabase() async {
+    try {
+      final db = await database;
+      print('DatabaseHelper: Starting database optimization');
+      
+      // Analyze all tables
+      await db.execute('ANALYZE');
+      
+      // Rebuild indexes
+      await rebuildAllIndexes();
+      
+      // Vacuum database to reclaim space
+      await db.execute('VACUUM');
+      
+      print('DatabaseHelper: Database optimization completed');
+    } catch (e) {
+      print('DatabaseHelper: Error optimizing database: $e');
+      rethrow;
+    }
+  }
+
   /// Create information table
   Future<void> _createInformationTable(Database db) async {
     try {
@@ -818,6 +977,38 @@ class DatabaseHelper {
         ON $informationTable ($colIsFavorite)
       ''');
       
+      // Additional performance indexes
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_archived 
+        ON $informationTable ($colIsArchived)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_updated_at 
+        ON $informationTable ($colUpdatedAt)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_source 
+        ON $informationTable ($colSource)
+      ''');
+      
+      // Composite indexes for common query patterns
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_type_importance 
+        ON $informationTable ($colType, $colImportance)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_favorite_created 
+        ON $informationTable ($colIsFavorite, $colCreatedAt)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_archived_updated 
+        ON $informationTable ($colIsArchived, $colUpdatedAt)
+      ''');
+      
       print('DatabaseHelper: Information table created successfully');
     } catch (e) {
       print('DatabaseHelper: Error creating information table: $e');
@@ -865,6 +1056,23 @@ class DatabaseHelper {
         ON $tagsTable ($colTagCreatedAt)
       ''');
       
+      // Additional performance indexes for tags
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tags_updated_at 
+        ON $tagsTable ($colTagUpdatedAt)
+      ''');
+      
+      // Composite indexes for common tag queries
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tags_color_usage 
+        ON $tagsTable ($colTagColor, $colTagUsageCount)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tags_usage_created 
+        ON $tagsTable ($colTagUsageCount, $colTagCreatedAt)
+      ''');
+      
       print('DatabaseHelper: Tags table created successfully');
     } catch (e) {
       print('DatabaseHelper: Error creating tags table: $e');
@@ -910,6 +1118,23 @@ class DatabaseHelper {
       await db.execute('''
         CREATE INDEX IF NOT EXISTS idx_information_tags_composite 
         ON $informationTagsTable ($colInformationId, $colJunctionTagId)
+      ''');
+      
+      // Additional performance indexes for junction table
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_tags_assigned_by 
+        ON $informationTagsTable ($colAssignedBy)
+      ''');
+      
+      // Composite indexes for advanced junction table queries
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_tags_tag_assigned 
+        ON $informationTagsTable ($colJunctionTagId, $colAssignedAt)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_tags_info_assigned 
+        ON $informationTagsTable ($colInformationId, $colAssignedAt)
       ''');
       
       print('DatabaseHelper: Information_tags junction table created successfully');

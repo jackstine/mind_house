@@ -32,40 +32,124 @@ class DatabaseHelper {
 
   /// Initialize database
   Future<Database> _initDatabase() async {
-    // Get the documents directory
-    Directory documentsDirectory = await getApplicationDocumentsDirectory();
-    String path = join(documentsDirectory.path, _databaseName);
+    try {
+      // Get the documents directory
+      Directory documentsDirectory = await getApplicationDocumentsDirectory();
+      String path = join(documentsDirectory.path, _databaseName);
 
-    // Open the database
-    return await openDatabase(
-      path,
-      version: _databaseVersion,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-      onConfigure: _onConfigure,
-    );
+      // Ensure the directory exists
+      if (!await documentsDirectory.exists()) {
+        await documentsDirectory.create(recursive: true);
+      }
+
+      print('DatabaseHelper: Initializing database at path: $path');
+
+      // Open the database
+      final database = await openDatabase(
+        path,
+        version: _databaseVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+        onConfigure: _onConfigure,
+        onOpen: _onOpen,
+      );
+
+      print('DatabaseHelper: Database initialized successfully');
+      return database;
+    } catch (e) {
+      print('DatabaseHelper: Error initializing database: $e');
+      rethrow;
+    }
   }
 
   /// Configure database settings
   Future<void> _onConfigure(Database db) async {
-    // Enable foreign key constraints
-    await db.execute('PRAGMA foreign_keys = ON');
+    try {
+      print('DatabaseHelper: Configuring database settings');
+      // Enable foreign key constraints
+      await db.execute('PRAGMA foreign_keys = ON');
+      
+      // Optimize database performance
+      await db.execute('PRAGMA journal_mode = WAL');
+      await db.execute('PRAGMA synchronous = NORMAL');
+      await db.execute('PRAGMA cache_size = 10000');
+      
+      print('DatabaseHelper: Database configuration completed');
+    } catch (e) {
+      print('DatabaseHelper: Error configuring database: $e');
+      rethrow;
+    }
+  }
+
+  /// Called when database is opened
+  Future<void> _onOpen(Database db) async {
+    try {
+      print('DatabaseHelper: Database opened successfully');
+      // Verify foreign keys are enabled
+      final result = await db.rawQuery('PRAGMA foreign_keys');
+      print('DatabaseHelper: Foreign keys enabled: ${result.first['foreign_keys']}');
+    } catch (e) {
+      print('DatabaseHelper: Error in onOpen: $e');
+    }
   }
 
   /// Create database tables
   Future<void> _onCreate(Database db, int version) async {
-    // Will be implemented in B4, B5, B6
-    await _createInformationTable(db);
-    await _createTagsTable(db);
-    await _createInformationTagsTable(db);
+    try {
+      print('DatabaseHelper: Creating database tables (version $version)');
+      
+      // Will be implemented in B4, B5, B6
+      await _createInformationTable(db);
+      await _createTagsTable(db);
+      await _createInformationTagsTable(db);
+      
+      print('DatabaseHelper: All tables created successfully');
+    } catch (e) {
+      print('DatabaseHelper: Error creating tables: $e');
+      rethrow;
+    }
   }
 
   /// Handle database upgrades/migrations
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Will be implemented as needed for future schema changes
-    if (oldVersion < newVersion) {
-      // Handle migrations here
-      // Example: if (oldVersion < 2) { ... }
+    try {
+      print('DatabaseHelper: Upgrading database from version $oldVersion to $newVersion');
+      
+      // Will be implemented as needed for future schema changes
+      if (oldVersion < newVersion) {
+        // Handle migrations here
+        // Example: if (oldVersion < 2) { ... }
+        print('DatabaseHelper: Migration logic not yet implemented');
+      }
+      
+      print('DatabaseHelper: Database upgrade completed');
+    } catch (e) {
+      print('DatabaseHelper: Error upgrading database: $e');
+      rethrow;
+    }
+  }
+
+  /// Initialize database manually (useful for testing)
+  Future<void> initializeDatabase() async {
+    try {
+      print('DatabaseHelper: Manual database initialization requested');
+      final db = await database;
+      print('DatabaseHelper: Manual initialization completed. Database ready.');
+    } catch (e) {
+      print('DatabaseHelper: Error during manual initialization: $e');
+      rethrow;
+    }
+  }
+
+  /// Check database health and connectivity
+  Future<bool> isDatabaseHealthy() async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery('SELECT 1');
+      return result.isNotEmpty;
+    } catch (e) {
+      print('DatabaseHelper: Database health check failed: $e');
+      return false;
     }
   }
 

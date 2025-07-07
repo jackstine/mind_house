@@ -14,6 +14,20 @@ class DatabaseHelper {
   // Database configuration
   static const String _databaseName = 'mind_house.db';
   static const int _databaseVersion = 1;
+  
+  // Version management
+  static const String _versionTableName = 'database_version_history';
+  static const int _minimumSupportedVersion = 1;
+  static const int _maximumSupportedVersion = 10;
+  
+  // Version history table columns
+  static const String colVersionId = 'id';
+  static const String colVersionNumber = 'version_number';
+  static const String colVersionName = 'version_name';
+  static const String colMigrationDate = 'migration_date';
+  static const String colMigrationDuration = 'migration_duration_ms';
+  static const String colMigrationNotes = 'migration_notes';
+  static const String colAppVersion = 'app_version';
 
   // Table names
   static const String informationTable = 'information';
@@ -65,6 +79,33 @@ class DatabaseHelper {
     '#3F51B5', // Indigo
     '#8BC34A', // Light Green
   ];
+
+  // Database version information
+  static const Map<int, String> versionNames = {
+    1: 'Initial Schema',
+    2: 'Enhanced Information Table',
+    3: 'Tag Categories',
+    4: 'Junction Table Enhancements',
+    5: 'Full-Text Search',
+    6: 'Performance Optimizations',
+    7: 'Security Enhancements',
+    8: 'Analytics Features',
+    9: 'Cloud Sync Support',
+    10: 'Advanced Features',
+  };
+
+  static const Map<int, String> versionDescriptions = {
+    1: 'Basic information, tags, and junction tables with core functionality',
+    2: 'Added reading time tracking and enhanced metadata support',
+    3: 'Introduced tag categorization and improved organization',
+    4: 'Enhanced many-to-many relationships with priority support',
+    5: 'Full-text search capabilities across all content',
+    6: 'Database performance optimizations and indexing improvements',
+    7: 'Enhanced security features and data encryption',
+    8: 'Analytics and usage tracking capabilities',
+    9: 'Cloud synchronization and backup features',
+    10: 'Advanced AI features and smart recommendations',
+  };
 
   // Singleton pattern
   DatabaseHelper._internal();
@@ -141,15 +182,30 @@ class DatabaseHelper {
 
   /// Create database tables
   Future<void> _onCreate(Database db, int version) async {
+    final stopwatch = Stopwatch()..start();
+    
     try {
       print('DatabaseHelper: Creating database tables (version $version)');
       
-      // Will be implemented in B4, B5, B6
+      // Create version history table first
+      await _createVersionHistoryTable(db);
+      
+      // Create main tables
       await _createInformationTable(db);
       await _createTagsTable(db);
       await _createInformationTagsTable(db);
       
-      print('DatabaseHelper: All tables created successfully');
+      stopwatch.stop();
+      
+      // Record initial version in history
+      await _recordVersionHistory(
+        db,
+        version,
+        stopwatch.elapsedMilliseconds,
+        'Initial database creation',
+      );
+      
+      print('DatabaseHelper: All tables created successfully in ${stopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       print('DatabaseHelper: Error creating tables: $e');
       rethrow;
@@ -158,15 +214,43 @@ class DatabaseHelper {
 
   /// Handle database upgrades/migrations
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    final upgradeStopwatch = Stopwatch()..start();
+    
     try {
       print('DatabaseHelper: Upgrading database from version $oldVersion to $newVersion');
       
-      // Handle migrations step by step
-      for (int version = oldVersion + 1; version <= newVersion; version++) {
-        await _migrateToVersion(db, version);
+      // Validate version compatibility
+      if (!_isVersionSupported(newVersion)) {
+        throw Exception('Database version $newVersion is not supported. Supported range: $_minimumSupportedVersion - $_maximumSupportedVersion');
       }
       
-      print('DatabaseHelper: Database upgrade completed');
+      if (oldVersion > newVersion) {
+        throw Exception('Cannot downgrade database from version $oldVersion to $newVersion');
+      }
+      
+      // Create version history table if it doesn't exist (for older databases)
+      await _ensureVersionHistoryTableExists(db);
+      
+      // Handle migrations step by step
+      for (int version = oldVersion + 1; version <= newVersion; version++) {
+        final migrationStopwatch = Stopwatch()..start();
+        
+        print('DatabaseHelper: Migrating to version $version (${versionNames[version] ?? 'Unknown'})');
+        await _migrateToVersion(db, version);
+        
+        migrationStopwatch.stop();
+        
+        // Record each migration in history
+        await _recordVersionHistory(
+          db,
+          version,
+          migrationStopwatch.elapsedMilliseconds,
+          'Migration from version ${version - 1}',
+        );
+      }
+      
+      upgradeStopwatch.stop();
+      print('DatabaseHelper: Database upgrade completed in ${upgradeStopwatch.elapsedMilliseconds}ms');
     } catch (e) {
       print('DatabaseHelper: Error upgrading database: $e');
       rethrow;
@@ -592,6 +676,97 @@ class DatabaseHelper {
     }
   }
 
+  /// Check if a database version is supported
+  static bool _isVersionSupported(int version) {
+    return version >= _minimumSupportedVersion && version <= _maximumSupportedVersion;
+  }
+
+  /// Get current database version
+  Future<int> getCurrentDatabaseVersion() async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery('PRAGMA user_version');
+      return (result.first['user_version'] as int?) ?? _databaseVersion;
+    } catch (e) {
+      print('DatabaseHelper: Error getting database version: $e');
+      return _databaseVersion;
+    }
+  }
+
+  /// Get version history
+  Future<List<Map<String, dynamic>>> getVersionHistory() async {
+    try {
+      final db = await database;
+      return await db.rawQuery('''
+        SELECT * FROM $_versionTableName 
+        ORDER BY $colVersionNumber ASC
+      ''');
+    } catch (e) {
+      print('DatabaseHelper: Error getting version history: $e');
+      return [];
+    }
+  }
+
+  /// Get version information
+  static Map<String, dynamic> getVersionInfo(int version) {
+    return {
+      'version': version,
+      'name': versionNames[version] ?? 'Unknown Version',
+      'description': versionDescriptions[version] ?? 'No description available',
+      'supported': _isVersionSupported(version),
+    };
+  }
+
+  /// Get all supported versions
+  static List<Map<String, dynamic>> getAllSupportedVersions() {
+    final versions = <Map<String, dynamic>>[];
+    for (int i = _minimumSupportedVersion; i <= _maximumSupportedVersion; i++) {
+      versions.add(getVersionInfo(i));
+    }
+    return versions;
+  }
+
+  /// Check if database needs upgrade
+  Future<bool> needsUpgrade() async {
+    try {
+      final currentVersion = await getCurrentDatabaseVersion();
+      return currentVersion < _databaseVersion;
+    } catch (e) {
+      print('DatabaseHelper: Error checking if upgrade needed: $e');
+      return false;
+    }
+  }
+
+  /// Get database schema version info
+  Future<Map<String, dynamic>> getDatabaseInfo() async {
+    try {
+      final db = await database;
+      final currentVersion = await getCurrentDatabaseVersion();
+      final history = await getVersionHistory();
+      
+      return {
+        'current_version': currentVersion,
+        'target_version': _databaseVersion,
+        'needs_upgrade': currentVersion < _databaseVersion,
+        'version_info': getVersionInfo(currentVersion),
+        'database_path': await getDatabasePath(),
+        'version_history_count': history.length,
+        'supported_version_range': {
+          'min': _minimumSupportedVersion,
+          'max': _maximumSupportedVersion,
+        },
+      };
+    } catch (e) {
+      print('DatabaseHelper: Error getting database info: $e');
+      return {
+        'error': e.toString(),
+        'current_version': _databaseVersion,
+        'target_version': _databaseVersion,
+        'needs_upgrade': false,
+      };
+    }
+  }
+
   /// Create information table
   Future<void> _createInformationTable(Database db) async {
     try {
@@ -740,6 +915,87 @@ class DatabaseHelper {
       print('DatabaseHelper: Information_tags junction table created successfully');
     } catch (e) {
       print('DatabaseHelper: Error creating information_tags junction table: $e');
+      rethrow;
+    }
+  }
+
+  /// Create version history table
+  Future<void> _createVersionHistoryTable(Database db) async {
+    try {
+      print('DatabaseHelper: Creating version history table');
+      
+      const String createVersionHistoryTableSQL = '''
+        CREATE TABLE $_versionTableName (
+          $colVersionId INTEGER PRIMARY KEY AUTOINCREMENT,
+          $colVersionNumber INTEGER NOT NULL,
+          $colVersionName TEXT NOT NULL,
+          $colMigrationDate TEXT NOT NULL,
+          $colMigrationDuration INTEGER NOT NULL DEFAULT 0,
+          $colMigrationNotes TEXT,
+          $colAppVersion TEXT
+        )
+      ''';
+      
+      await db.execute(createVersionHistoryTableSQL);
+      
+      // Create index for version number
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_version_history_number 
+        ON $_versionTableName ($colVersionNumber)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_version_history_date 
+        ON $_versionTableName ($colMigrationDate)
+      ''');
+      
+      print('DatabaseHelper: Version history table created successfully');
+    } catch (e) {
+      print('DatabaseHelper: Error creating version history table: $e');
+      rethrow;
+    }
+  }
+
+  /// Ensure version history table exists (for existing databases)
+  Future<void> _ensureVersionHistoryTableExists(Database db) async {
+    try {
+      final tableExists = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='$_versionTableName'
+      ''');
+      
+      if (tableExists.isEmpty) {
+        await _createVersionHistoryTable(db);
+      }
+    } catch (e) {
+      print('DatabaseHelper: Error ensuring version history table exists: $e');
+      rethrow;
+    }
+  }
+
+  /// Record version history entry
+  Future<void> _recordVersionHistory(
+    Database db,
+    int version,
+    int durationMs,
+    String notes,
+  ) async {
+    try {
+      final now = DateTime.now().toIso8601String();
+      final versionName = versionNames[version] ?? 'Unknown Version';
+      
+      await db.insert(_versionTableName, {
+        colVersionNumber: version,
+        colVersionName: versionName,
+        colMigrationDate: now,
+        colMigrationDuration: durationMs,
+        colMigrationNotes: notes,
+        colAppVersion: '1.0.0', // This could be dynamic based on app version
+      });
+      
+      print('DatabaseHelper: Recorded version $version in history (${durationMs}ms)');
+    } catch (e) {
+      print('DatabaseHelper: Error recording version history: $e');
       rethrow;
     }
   }

@@ -216,5 +216,43 @@ void main() {
       expect(tableRefs.contains('information'), isTrue);
       expect(tableRefs.contains('tags'), isTrue);
     });
+
+    test('Version management utilities should work correctly', () {
+      // Test version support checking
+      expect(DatabaseHelper.getVersionInfo(1)['supported'], isTrue);
+      expect(DatabaseHelper.getVersionInfo(5)['supported'], isTrue);
+      expect(DatabaseHelper.getVersionInfo(10)['supported'], isTrue);
+      expect(DatabaseHelper.getVersionInfo(0)['supported'], isFalse);
+      expect(DatabaseHelper.getVersionInfo(11)['supported'], isFalse);
+      
+      // Test version info
+      final versionInfo = DatabaseHelper.getVersionInfo(1);
+      expect(versionInfo['version'], equals(1));
+      expect(versionInfo['name'], equals('Initial Schema'));
+      expect(versionInfo['description'], contains('Basic information'));
+      
+      // Test all supported versions
+      final supportedVersions = DatabaseHelper.getAllSupportedVersions();
+      expect(supportedVersions.length, equals(10));
+      expect(supportedVersions.first['version'], equals(1));
+      expect(supportedVersions.last['version'], equals(10));
+    });
+
+    test('Database version history table should be created', () async {
+      final db = await databaseHelper.database;
+      
+      // Verify version history table exists
+      final tableExists = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='database_version_history'
+      ''');
+      expect(tableExists.isNotEmpty, isTrue);
+      
+      // Verify version history has been recorded
+      final history = await databaseHelper.getVersionHistory();
+      expect(history.isNotEmpty, isTrue);
+      expect(history.first['version_number'], equals(1));
+      expect(history.first['version_name'], equals('Initial Schema'));
+    });
   });
 }

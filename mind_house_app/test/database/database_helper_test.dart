@@ -99,5 +99,68 @@ void main() {
       expect(indexNames.contains('idx_information_type'), isTrue);
       expect(indexNames.contains('idx_information_created_at'), isTrue);
     });
+
+    test('Tags table should be created with correct schema', () async {
+      final db = await databaseHelper.database;
+      
+      // Verify table exists
+      final tableExists = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='tags'
+      ''');
+      expect(tableExists.isNotEmpty, isTrue);
+      
+      // Verify schema
+      final schemaValid = await databaseHelper.verifyTagsTableSchema();
+      expect(schemaValid, isTrue);
+      
+      // Verify columns
+      final columns = await databaseHelper.getTagsTableColumns();
+      expect(columns.contains('id'), isTrue);
+      expect(columns.contains('name'), isTrue);
+      expect(columns.contains('color'), isTrue);
+      expect(columns.contains('description'), isTrue);
+      expect(columns.contains('usage_count'), isTrue);
+      expect(columns.contains('created_at'), isTrue);
+      expect(columns.contains('updated_at'), isTrue);
+    });
+
+    test('Tags table indexes should be created', () async {
+      final db = await databaseHelper.database;
+      
+      // Check if indexes exist
+      final indexes = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='index' AND tbl_name='tags'
+      ''');
+      
+      expect(indexes.isNotEmpty, isTrue);
+      
+      // Verify specific indexes
+      final indexNames = indexes.map((idx) => idx['name'] as String).toList();
+      expect(indexNames.contains('idx_tags_name'), isTrue);
+      expect(indexNames.contains('idx_tags_color'), isTrue);
+      expect(indexNames.contains('idx_tags_usage_count'), isTrue);
+    });
+
+    test('Tag color utilities should work correctly', () {
+      // Test random color generation
+      final randomColor = DatabaseHelper.getRandomTagColor();
+      expect(randomColor, isNotEmpty);
+      expect(DatabaseHelper.isValidHexColor(randomColor), isTrue);
+      
+      // Test hex color validation
+      expect(DatabaseHelper.isValidHexColor('#FF0000'), isTrue);
+      expect(DatabaseHelper.isValidHexColor('#abc'), isTrue);
+      expect(DatabaseHelper.isValidHexColor('FF0000'), isFalse);
+      expect(DatabaseHelper.isValidHexColor('#GG0000'), isFalse);
+      expect(DatabaseHelper.isValidHexColor('#FF00'), isFalse);
+      
+      // Test predefined colors
+      expect(DatabaseHelper.predefinedTagColors.length, greaterThan(10));
+      for (final color in DatabaseHelper.predefinedTagColors) {
+        expect(DatabaseHelper.isValidHexColor(color), isTrue);
+      }
+    });
   });
 }

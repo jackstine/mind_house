@@ -35,6 +35,31 @@ class DatabaseHelper {
   static const String colAccessedAt = 'accessed_at';
   static const String colMetadata = 'metadata';
 
+  // Tags table columns
+  static const String colTagId = 'id';
+  static const String colTagName = 'name';
+  static const String colTagColor = 'color';
+  static const String colTagDescription = 'description';
+  static const String colTagUsageCount = 'usage_count';
+  static const String colTagCreatedAt = 'created_at';
+  static const String colTagUpdatedAt = 'updated_at';
+
+  // Predefined tag colors (Material Design palette)
+  static const List<String> predefinedTagColors = [
+    '#2196F3', // Blue
+    '#4CAF50', // Green
+    '#FF9800', // Orange
+    '#F44336', // Red
+    '#9C27B0', // Purple
+    '#607D8B', // Blue Grey
+    '#795548', // Brown
+    '#E91E63', // Pink
+    '#009688', // Teal
+    '#FFC107', // Amber
+    '#3F51B5', // Indigo
+    '#8BC34A', // Light Green
+  ];
+
   // Singleton pattern
   DatabaseHelper._internal();
   factory DatabaseHelper() => _instance;
@@ -181,6 +206,30 @@ class DatabaseHelper {
     }
   }
 
+  /// Example migration for tags table (version 3)
+  Future<void> _migrateTagsTableToV3(Database db) async {
+    try {
+      print('DatabaseHelper: Migrating tags table to version 3');
+      
+      // Example: Add new column for tag categories
+      await db.execute('''
+        ALTER TABLE $tagsTable 
+        ADD COLUMN category TEXT DEFAULT 'general'
+      ''');
+      
+      // Example: Create new index
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tags_category 
+        ON $tagsTable (category)
+      ''');
+      
+      print('DatabaseHelper: Tags table migration to v3 completed');
+    } catch (e) {
+      print('DatabaseHelper: Error migrating tags table to v3: $e');
+      rethrow;
+    }
+  }
+
   /// Initialize database manually (useful for testing)
   Future<void> initializeDatabase() async {
     try {
@@ -271,6 +320,101 @@ class DatabaseHelper {
     }
   }
 
+  /// Verify tags table exists and has correct schema
+  Future<bool> verifyTagsTableSchema() async {
+    try {
+      final db = await database;
+      
+      // Check if table exists
+      final tableExists = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='$tagsTable'
+      ''');
+      
+      if (tableExists.isEmpty) {
+        print('DatabaseHelper: Tags table does not exist');
+        return false;
+      }
+      
+      // Check table schema
+      final tableInfo = await db.rawQuery('PRAGMA table_info($tagsTable)');
+      
+      // Expected columns
+      final expectedColumns = [
+        colTagId, colTagName, colTagColor, colTagDescription,
+        colTagUsageCount, colTagCreatedAt, colTagUpdatedAt
+      ];
+      
+      final actualColumns = tableInfo.map((row) => row['name'] as String).toList();
+      
+      for (final expectedColumn in expectedColumns) {
+        if (!actualColumns.contains(expectedColumn)) {
+          print('DatabaseHelper: Missing column: $expectedColumn');
+          return false;
+        }
+      }
+      
+      print('DatabaseHelper: Tags table schema verified');
+      return true;
+    } catch (e) {
+      print('DatabaseHelper: Error verifying tags table schema: $e');
+      return false;
+    }
+  }
+
+  /// Get tags table column names
+  Future<List<String>> getTagsTableColumns() async {
+    try {
+      final db = await database;
+      final tableInfo = await db.rawQuery('PRAGMA table_info($tagsTable)');
+      return tableInfo.map((row) => row['name'] as String).toList();
+    } catch (e) {
+      print('DatabaseHelper: Error getting tags table columns: $e');
+      return [];
+    }
+  }
+
+  /// Get a random predefined tag color
+  static String getRandomTagColor() {
+    final random = DateTime.now().millisecondsSinceEpoch % predefinedTagColors.length;
+    return predefinedTagColors[random];
+  }
+
+  /// Validate if color is a valid hex color
+  static bool isValidHexColor(String color) {
+    final hexColorRegex = RegExp(r'^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$');
+    return hexColorRegex.hasMatch(color);
+  }
+
+  /// Get next available tag color from predefined colors
+  Future<String> getNextAvailableTagColor() async {
+    try {
+      final db = await database;
+      
+      // Get all used colors
+      final usedColors = await db.rawQuery('''
+        SELECT DISTINCT $colTagColor FROM $tagsTable
+      ''');
+      
+      final usedColorSet = usedColors
+          .map((row) => row[colTagColor] as String)
+          .toSet();
+      
+      // Find first unused color
+      for (final color in predefinedTagColors) {
+        if (!usedColorSet.contains(color)) {
+          return color;
+        }
+      }
+      
+      // If all colors are used, return a random one
+      return getRandomTagColor();
+    } catch (e) {
+      print('DatabaseHelper: Error getting next available tag color: $e');
+      return getRandomTagColor();
+    }
+  }
+
   /// Create information table
   Future<void> _createInformationTable(Database db) async {
     try {
@@ -331,7 +475,49 @@ class DatabaseHelper {
 
   /// Create tags table
   Future<void> _createTagsTable(Database db) async {
-    // Implementation will be added in B5
+    try {
+      print('DatabaseHelper: Creating tags table');
+      
+      const String createTagsTableSQL = '''
+        CREATE TABLE $tagsTable (
+          $colTagId TEXT PRIMARY KEY,
+          $colTagName TEXT NOT NULL UNIQUE,
+          $colTagColor TEXT NOT NULL DEFAULT '#2196F3',
+          $colTagDescription TEXT,
+          $colTagUsageCount INTEGER NOT NULL DEFAULT 0,
+          $colTagCreatedAt TEXT NOT NULL,
+          $colTagUpdatedAt TEXT NOT NULL
+        )
+      ''';
+      
+      await db.execute(createTagsTableSQL);
+      
+      // Create indexes for better performance
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tags_name 
+        ON $tagsTable ($colTagName)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tags_color 
+        ON $tagsTable ($colTagColor)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tags_usage_count 
+        ON $tagsTable ($colTagUsageCount)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tags_created_at 
+        ON $tagsTable ($colTagCreatedAt)
+      ''');
+      
+      print('DatabaseHelper: Tags table created successfully');
+    } catch (e) {
+      print('DatabaseHelper: Error creating tags table: $e');
+      rethrow;
+    }
   }
 
   /// Create information_tags junction table

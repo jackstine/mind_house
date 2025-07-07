@@ -162,5 +162,59 @@ void main() {
         expect(DatabaseHelper.isValidHexColor(color), isTrue);
       }
     });
+
+    test('Information_tags junction table should be created with correct schema', () async {
+      final db = await databaseHelper.database;
+      
+      // Verify table exists
+      final tableExists = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='information_tags'
+      ''');
+      expect(tableExists.isNotEmpty, isTrue);
+      
+      // Verify schema
+      final schemaValid = await databaseHelper.verifyInformationTagsTableSchema();
+      expect(schemaValid, isTrue);
+      
+      // Verify columns
+      final columns = await databaseHelper.getInformationTagsTableColumns();
+      expect(columns.contains('information_id'), isTrue);
+      expect(columns.contains('tag_id'), isTrue);
+      expect(columns.contains('assigned_at'), isTrue);
+      expect(columns.contains('assigned_by'), isTrue);
+    });
+
+    test('Information_tags junction table indexes should be created', () async {
+      final db = await databaseHelper.database;
+      
+      // Check if indexes exist
+      final indexes = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='index' AND tbl_name='information_tags'
+      ''');
+      
+      expect(indexes.isNotEmpty, isTrue);
+      
+      // Verify specific indexes
+      final indexNames = indexes.map((idx) => idx['name'] as String).toList();
+      expect(indexNames.contains('idx_information_tags_information_id'), isTrue);
+      expect(indexNames.contains('idx_information_tags_tag_id'), isTrue);
+      expect(indexNames.contains('idx_information_tags_assigned_at'), isTrue);
+      expect(indexNames.contains('idx_information_tags_composite'), isTrue);
+    });
+
+    test('Information_tags junction table foreign keys should be enforced', () async {
+      final db = await databaseHelper.database;
+      
+      // Check foreign key constraints
+      final foreignKeys = await db.rawQuery('PRAGMA foreign_key_list(information_tags)');
+      expect(foreignKeys.length, equals(2));
+      
+      // Verify foreign key table references
+      final tableRefs = foreignKeys.map((fk) => fk['table'] as String).toList();
+      expect(tableRefs.contains('information'), isTrue);
+      expect(tableRefs.contains('tags'), isTrue);
+    });
   });
 }

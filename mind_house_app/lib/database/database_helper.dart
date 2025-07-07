@@ -44,6 +44,12 @@ class DatabaseHelper {
   static const String colTagCreatedAt = 'created_at';
   static const String colTagUpdatedAt = 'updated_at';
 
+  // Information_tags junction table columns
+  static const String colInformationId = 'information_id';
+  static const String colJunctionTagId = 'tag_id';
+  static const String colAssignedAt = 'assigned_at';
+  static const String colAssignedBy = 'assigned_by';
+
   // Predefined tag colors (Material Design palette)
   static const List<String> predefinedTagColors = [
     '#2196F3', // Blue
@@ -177,6 +183,14 @@ class DatabaseHelper {
         // Future migration example
         await _migrateInformationTableToV2(db);
         break;
+      case 3:
+        // Example migration for tags table
+        await _migrateTagsTableToV3(db);
+        break;
+      case 4:
+        // Example migration for junction table
+        await _migrateInformationTagsTableToV4(db);
+        break;
       default:
         print('DatabaseHelper: No migration needed for version $version');
     }
@@ -226,6 +240,30 @@ class DatabaseHelper {
       print('DatabaseHelper: Tags table migration to v3 completed');
     } catch (e) {
       print('DatabaseHelper: Error migrating tags table to v3: $e');
+      rethrow;
+    }
+  }
+
+  /// Example migration for information_tags junction table (version 4)
+  Future<void> _migrateInformationTagsTableToV4(Database db) async {
+    try {
+      print('DatabaseHelper: Migrating information_tags junction table to version 4');
+      
+      // Example: Add new column for assignment priority
+      await db.execute('''
+        ALTER TABLE $informationTagsTable 
+        ADD COLUMN priority INTEGER DEFAULT 0
+      ''');
+      
+      // Example: Create new index
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_tags_priority 
+        ON $informationTagsTable (priority)
+      ''');
+      
+      print('DatabaseHelper: Information_tags junction table migration to v4 completed');
+    } catch (e) {
+      print('DatabaseHelper: Error migrating information_tags junction table to v4: $e');
       rethrow;
     }
   }
@@ -415,6 +453,145 @@ class DatabaseHelper {
     }
   }
 
+  /// Verify information_tags junction table exists and has correct schema
+  Future<bool> verifyInformationTagsTableSchema() async {
+    try {
+      final db = await database;
+      
+      // Check if table exists
+      final tableExists = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='$informationTagsTable'
+      ''');
+      
+      if (tableExists.isEmpty) {
+        print('DatabaseHelper: Information_tags junction table does not exist');
+        return false;
+      }
+      
+      // Check table schema
+      final tableInfo = await db.rawQuery('PRAGMA table_info($informationTagsTable)');
+      
+      // Expected columns
+      final expectedColumns = [
+        colInformationId, colJunctionTagId, colAssignedAt, colAssignedBy
+      ];
+      
+      final actualColumns = tableInfo.map((row) => row['name'] as String).toList();
+      
+      for (final expectedColumn in expectedColumns) {
+        if (!actualColumns.contains(expectedColumn)) {
+          print('DatabaseHelper: Missing column: $expectedColumn');
+          return false;
+        }
+      }
+      
+      // Check foreign key constraints
+      final foreignKeys = await db.rawQuery('PRAGMA foreign_key_list($informationTagsTable)');
+      if (foreignKeys.length < 2) {
+        print('DatabaseHelper: Missing foreign key constraints');
+        return false;
+      }
+      
+      print('DatabaseHelper: Information_tags junction table schema verified');
+      return true;
+    } catch (e) {
+      print('DatabaseHelper: Error verifying information_tags junction table schema: $e');
+      return false;
+    }
+  }
+
+  /// Get information_tags junction table column names
+  Future<List<String>> getInformationTagsTableColumns() async {
+    try {
+      final db = await database;
+      final tableInfo = await db.rawQuery('PRAGMA table_info($informationTagsTable)');
+      return tableInfo.map((row) => row['name'] as String).toList();
+    } catch (e) {
+      print('DatabaseHelper: Error getting information_tags junction table columns: $e');
+      return [];
+    }
+  }
+
+  /// Get tag count for a specific information item
+  Future<int> getTagCountForInformation(String informationId) async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery('''
+        SELECT COUNT(*) as count FROM $informationTagsTable 
+        WHERE $colInformationId = ?
+      ''', [informationId]);
+      
+      return (result.first['count'] as int?) ?? 0;
+    } catch (e) {
+      print('DatabaseHelper: Error getting tag count for information: $e');
+      return 0;
+    }
+  }
+
+  /// Get information count for a specific tag
+  Future<int> getInformationCountForTag(String tagId) async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery('''
+        SELECT COUNT(*) as count FROM $informationTagsTable 
+        WHERE $colJunctionTagId = ?
+      ''', [tagId]);
+      
+      return (result.first['count'] as int?) ?? 0;
+    } catch (e) {
+      print('DatabaseHelper: Error getting information count for tag: $e');
+      return 0;
+    }
+  }
+
+  /// Check if a specific information-tag relationship exists
+  Future<bool> doesInformationTagRelationshipExist(String informationId, String tagId) async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery('''
+        SELECT COUNT(*) as count FROM $informationTagsTable 
+        WHERE $colInformationId = ? AND $colJunctionTagId = ?
+      ''', [informationId, tagId]);
+      
+      return ((result.first['count'] as int?) ?? 0) > 0;
+    } catch (e) {
+      print('DatabaseHelper: Error checking information-tag relationship: $e');
+      return false;
+    }
+  }
+
+  /// Get all unique tags used across all information items
+  Future<List<Map<String, dynamic>>> getAllUsedTags() async {
+    try {
+      final db = await database;
+      return await db.rawQuery('''
+        SELECT DISTINCT t.* FROM $tagsTable t
+        INNER JOIN $informationTagsTable it ON t.$colTagId = it.$colJunctionTagId
+        ORDER BY t.$colTagName
+      ''');
+    } catch (e) {
+      print('DatabaseHelper: Error getting all used tags: $e');
+      return [];
+    }
+  }
+
+  /// Get all unused tags (not assigned to any information)
+  Future<List<Map<String, dynamic>>> getAllUnusedTags() async {
+    try {
+      final db = await database;
+      return await db.rawQuery('''
+        SELECT t.* FROM $tagsTable t
+        LEFT JOIN $informationTagsTable it ON t.$colTagId = it.$colJunctionTagId
+        WHERE it.$colJunctionTagId IS NULL
+        ORDER BY t.$colTagName
+      ''');
+    } catch (e) {
+      print('DatabaseHelper: Error getting all unused tags: $e');
+      return [];
+    }
+  }
+
   /// Create information table
   Future<void> _createInformationTable(Database db) async {
     try {
@@ -522,7 +699,49 @@ class DatabaseHelper {
 
   /// Create information_tags junction table
   Future<void> _createInformationTagsTable(Database db) async {
-    // Implementation will be added in B6
+    try {
+      print('DatabaseHelper: Creating information_tags junction table');
+      
+      const String createInformationTagsTableSQL = '''
+        CREATE TABLE $informationTagsTable (
+          $colInformationId TEXT NOT NULL,
+          $colJunctionTagId TEXT NOT NULL,
+          $colAssignedAt TEXT NOT NULL,
+          $colAssignedBy TEXT DEFAULT 'system',
+          PRIMARY KEY ($colInformationId, $colJunctionTagId),
+          FOREIGN KEY ($colInformationId) REFERENCES $informationTable ($colId) ON DELETE CASCADE,
+          FOREIGN KEY ($colJunctionTagId) REFERENCES $tagsTable ($colTagId) ON DELETE CASCADE
+        )
+      ''';
+      
+      await db.execute(createInformationTagsTableSQL);
+      
+      // Create indexes for better performance
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_tags_information_id 
+        ON $informationTagsTable ($colInformationId)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_tags_tag_id 
+        ON $informationTagsTable ($colJunctionTagId)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_tags_assigned_at 
+        ON $informationTagsTable ($colAssignedAt)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_information_tags_composite 
+        ON $informationTagsTable ($colInformationId, $colJunctionTagId)
+      ''');
+      
+      print('DatabaseHelper: Information_tags junction table created successfully');
+    } catch (e) {
+      print('DatabaseHelper: Error creating information_tags junction table: $e');
+      rethrow;
+    }
   }
 
   /// Close database connection

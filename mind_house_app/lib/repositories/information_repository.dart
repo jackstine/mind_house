@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:mind_house_app/database/database_helper.dart';
 import 'package:mind_house_app/models/information.dart';
+import 'package:mind_house_app/models/information_tag.dart';
 
 /// Enumeration for sorting fields
 enum SortField {
@@ -559,6 +560,377 @@ class InformationRepository {
         context: {
           'minImportance': minImportance,
           'maxImportance': maxImportance,
+          'limit': limit,
+          'offset': offset,
+        },
+        originalError: e,
+      );
+    }
+  }
+
+  // ============================================================================
+  // Tag Management Methods with Usage Count Triggers
+  // ============================================================================
+
+  /// Add tags to an information item with automatic usage count updates
+  /// 
+  /// [informationId] - ID of the information item
+  /// [tagIds] - List of tag IDs to add
+  /// 
+  /// This method creates associations in the information_tags table and
+  /// automatically increments the usage count for each tag.
+  /// Throws [MindHouseDatabaseException] if operation fails.
+  Future<void> addTags(String informationId, List<String> tagIds) async {
+    if (tagIds.isEmpty) return;
+
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      await db.transaction((txn) async {
+        for (final tagId in tagIds) {
+          // Verify information exists
+          final infoExists = await txn.query(
+            _tableName,
+            where: '$_colId = ?',
+            whereArgs: [informationId],
+            limit: 1,
+          );
+          
+          if (infoExists.isEmpty) {
+            throw MindHouseDatabaseException(
+              message: 'Information item not found',
+              type: DatabaseErrorType.query,
+              operation: 'addTags',
+              context: {'information_id': informationId},
+            );
+          }
+
+          // Verify tag exists
+          final tagExists = await txn.query(
+            'tags',
+            where: 'id = ?',
+            whereArgs: [tagId],
+            limit: 1,
+          );
+          
+          if (tagExists.isEmpty) {
+            throw MindHouseDatabaseException(
+              message: 'Tag not found',
+              type: DatabaseErrorType.query,
+              operation: 'addTags',
+              context: {'tag_id': tagId},
+            );
+          }
+
+          // Check if association already exists
+          final existingAssociation = await txn.query(
+            'information_tags',
+            where: 'information_id = ? AND tag_id = ?',
+            whereArgs: [informationId, tagId],
+            limit: 1,
+          );
+
+          if (existingAssociation.isEmpty) {
+            // Create association
+            final association = InformationTag(
+              informationId: informationId,
+              tagId: tagId,
+            );
+            
+            await txn.insert('information_tags', association.toJson());
+            
+            // Increment tag usage count
+            await txn.rawUpdate(
+              'UPDATE tags SET usage_count = usage_count + 1, updated_at = ? WHERE id = ?',
+              [DateTime.now().toIso8601String(), tagId],
+            );
+          }
+        }
+      });
+    } catch (e) {
+      if (e is MindHouseDatabaseException) {
+        rethrow;
+      }
+      throw MindHouseDatabaseException(
+        message: 'Failed to add tags to information',
+        type: DatabaseErrorType.query,
+        operation: 'addTags',
+        context: {'information_id': informationId, 'tag_ids': tagIds},
+        originalError: e,
+      );
+    }
+  }
+
+  /// Remove tags from an information item with automatic usage count updates
+  /// 
+  /// [informationId] - ID of the information item
+  /// [tagIds] - List of tag IDs to remove
+  /// 
+  /// This method removes associations from the information_tags table and
+  /// automatically decrements the usage count for each tag (minimum 0).
+  /// Throws [MindHouseDatabaseException] if operation fails.
+  Future<void> removeTags(String informationId, List<String> tagIds) async {
+    if (tagIds.isEmpty) return;
+
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      await db.transaction((txn) async {
+        for (final tagId in tagIds) {
+          // Remove association if it exists
+          final deletedRows = await txn.delete(
+            'information_tags',
+            where: 'information_id = ? AND tag_id = ?',
+            whereArgs: [informationId, tagId],
+          );
+
+          // Only decrement usage count if association was actually removed
+          if (deletedRows > 0) {
+            // Decrement tag usage count (with minimum 0 protection)
+            await txn.rawUpdate(
+              'UPDATE tags SET usage_count = MAX(0, usage_count - 1), updated_at = ? WHERE id = ?',
+              [DateTime.now().toIso8601String(), tagId],
+            );
+          }
+        }
+      });
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to remove tags from information',
+        type: DatabaseErrorType.query,
+        operation: 'removeTags',
+        context: {'information_id': informationId, 'tag_ids': tagIds},
+        originalError: e,
+      );
+    }
+  }
+
+  /// Update tags for an information item by replacing all existing tags
+  /// 
+  /// [informationId] - ID of the information item
+  /// [newTagIds] - List of tag IDs that should be associated with the information
+  /// 
+  /// This method efficiently updates tag associations by:
+  /// 1. Finding tags to remove (existing but not in new list)
+  /// 2. Finding tags to add (in new list but not existing)
+  /// 3. Updating usage counts accordingly
+  /// 
+  /// Throws [MindHouseDatabaseException] if operation fails.
+  Future<void> updateTags(String informationId, List<String> newTagIds) async {
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      await db.transaction((txn) async {
+        // Get current tag associations
+        final currentAssociations = await txn.query(
+          'information_tags',
+          columns: ['tag_id'],
+          where: 'information_id = ?',
+          whereArgs: [informationId],
+        );
+        
+        final currentTagIds = currentAssociations
+            .map((row) => row['tag_id'] as String)
+            .toSet();
+        final newTagIdsSet = newTagIds.toSet();
+        
+        // Find tags to remove and add
+        final tagsToRemove = currentTagIds.difference(newTagIdsSet).toList();
+        final tagsToAdd = newTagIdsSet.difference(currentTagIds).toList();
+        
+        // Remove tags that are no longer needed
+        for (final tagId in tagsToRemove) {
+          await txn.delete(
+            'information_tags',
+            where: 'information_id = ? AND tag_id = ?',
+            whereArgs: [informationId, tagId],
+          );
+          
+          // Decrement usage count
+          await txn.rawUpdate(
+            'UPDATE tags SET usage_count = MAX(0, usage_count - 1), updated_at = ? WHERE id = ?',
+            [DateTime.now().toIso8601String(), tagId],
+          );
+        }
+        
+        // Add new tags
+        for (final tagId in tagsToAdd) {
+          // Verify tag exists
+          final tagExists = await txn.query(
+            'tags',
+            where: 'id = ?',
+            whereArgs: [tagId],
+            limit: 1,
+          );
+          
+          if (tagExists.isEmpty) {
+            throw MindHouseDatabaseException(
+              message: 'Tag not found',
+              type: DatabaseErrorType.query,
+              operation: 'updateTags',
+              context: {'tag_id': tagId},
+            );
+          }
+          
+          // Create association
+          final association = InformationTag(
+            informationId: informationId,
+            tagId: tagId,
+          );
+          
+          await txn.insert('information_tags', association.toJson());
+          
+          // Increment usage count
+          await txn.rawUpdate(
+            'UPDATE tags SET usage_count = usage_count + 1, updated_at = ? WHERE id = ?',
+            [DateTime.now().toIso8601String(), tagId],
+          );
+        }
+      });
+    } catch (e) {
+      if (e is MindHouseDatabaseException) {
+        rethrow;
+      }
+      throw MindHouseDatabaseException(
+        message: 'Failed to update tags for information',
+        type: DatabaseErrorType.query,
+        operation: 'updateTags',
+        context: {'information_id': informationId, 'new_tag_ids': newTagIds},
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get all tag assignments for an information item
+  /// 
+  /// [informationId] - ID of the information item
+  /// 
+  /// Returns a list of InformationTag associations for the given information.
+  /// Throws [MindHouseDatabaseException] if query fails.
+  Future<List<InformationTag>> getTagAssignments(String informationId) async {
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      final List<Map<String, dynamic>> results = await db.query(
+        'information_tags',
+        where: 'information_id = ?',
+        whereArgs: [informationId],
+        orderBy: 'assigned_at ASC',
+      );
+      
+      return results.map((json) => InformationTag.fromJson(json)).toList();
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to get tag assignments for information',
+        type: DatabaseErrorType.query,
+        operation: 'getTagAssignments',
+        context: {'information_id': informationId},
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get all tag IDs associated with an information item
+  /// 
+  /// [informationId] - ID of the information item
+  /// 
+  /// Returns a list of tag IDs associated with the information.
+  /// Throws [MindHouseDatabaseException] if query fails.
+  Future<List<String>> getTagIds(String informationId) async {
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      final List<Map<String, dynamic>> results = await db.query(
+        'information_tags',
+        columns: ['tag_id'],
+        where: 'information_id = ?',
+        whereArgs: [informationId],
+        orderBy: 'assigned_at ASC',
+      );
+      
+      return results.map((row) => row['tag_id'] as String).toList();
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to get tag IDs for information',
+        type: DatabaseErrorType.query,
+        operation: 'getTagIds',
+        context: {'information_id': informationId},
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get information items by tag IDs
+  /// 
+  /// [tagIds] - List of tag IDs to filter by
+  /// [requireAllTags] - If true, information must have ALL specified tags.
+  ///                    If false, information must have AT LEAST ONE tag (default: false)
+  /// [limit] - Maximum number of information items to return (optional)
+  /// [offset] - Number of information items to skip (optional)
+  /// 
+  /// Returns information items that are associated with the specified tags.
+  /// Throws [MindHouseDatabaseException] if query fails.
+  Future<List<Information>> getByTagIds(
+    List<String> tagIds, {
+    bool requireAllTags = false,
+    int? limit,
+    int? offset,
+  }) async {
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      if (tagIds.isEmpty) {
+        return [];
+      }
+      
+      final String placeholders = tagIds.map((_) => '?').join(',');
+      
+      String query;
+      List<dynamic> args;
+      
+      if (requireAllTags) {
+        // Information must have ALL specified tags
+        query = '''
+          SELECT DISTINCT i.*
+          FROM $_tableName i
+          INNER JOIN information_tags it ON i.id = it.information_id
+          WHERE it.tag_id IN ($placeholders)
+          GROUP BY i.id
+          HAVING COUNT(DISTINCT it.tag_id) = ?
+          ORDER BY i.updated_at DESC
+        ''';
+        args = [...tagIds, tagIds.length];
+      } else {
+        // Information must have AT LEAST ONE of the specified tags
+        query = '''
+          SELECT DISTINCT i.*
+          FROM $_tableName i
+          INNER JOIN information_tags it ON i.id = it.information_id
+          WHERE it.tag_id IN ($placeholders)
+          ORDER BY i.updated_at DESC
+        ''';
+        args = tagIds;
+      }
+      
+      if (limit != null) {
+        query += ' LIMIT $limit';
+      }
+      
+      if (offset != null) {
+        query += ' OFFSET $offset';
+      }
+      
+      final List<Map<String, dynamic>> results = await db.rawQuery(query, args);
+      
+      return results.map((json) => Information.fromJson(json)).toList();
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to get information by tag IDs',
+        type: DatabaseErrorType.query,
+        operation: 'getByTagIds',
+        context: {
+          'tag_ids': tagIds,
+          'require_all_tags': requireAllTags,
           'limit': limit,
           'offset': offset,
         },

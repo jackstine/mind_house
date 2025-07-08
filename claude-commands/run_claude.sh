@@ -10,8 +10,10 @@ claude_todos() {
     local template_file="$3"
     local todos=$(grep "^- \[ \]" "$todo_file" | head -1 || echo "No uncompleted todos found")
     local prompt=$(sed "s|\$ARGUMENTS|$todos|g" "$template_file")
-    echo "claude -p \"$prompt \n the todo file is $todo_file\" --session-id \"$session_id\""
-    claude -p "$prompt   \n the todo file is $todo_file" --resume "$session_id"
+    echo "claude -p \"$prompt \n the todo file is $todo_file\" --dangerously-skip-permissions --session-id \"$session_id\""
+    claude -p "$prompt   \n the todo file is $todo_file" \
+        --allowedTools "Read,Write,Edit,MultiEdit,Glob,Grep,Task,Bash,WebSearch,WebFetch,Notebook,Computer" \
+        --resume "$session_id"
 }
 
 claude_todos $1 $2 $3

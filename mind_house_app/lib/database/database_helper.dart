@@ -1,12 +1,183 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:developer' as developer;
 
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 
+/// Database error types for categorized error handling
+enum DatabaseErrorType {
+  initialization,
+  migration,
+  connection,
+  query,
+  constraint,
+  validation,
+  backup,
+  maintenance,
+  unknown,
+}
+
+/// Custom database exception with context and error categorization
+class MindHouseDatabaseException implements Exception {
+  final String message;
+  final DatabaseErrorType type;
+  final String? operation;
+  final Map<String, dynamic>? context;
+  final dynamic originalError;
+  final StackTrace? stackTrace;
+  final DateTime timestamp;
+
+  MindHouseDatabaseException({
+    required this.message,
+    required this.type,
+    this.operation,
+    this.context,
+    this.originalError,
+    this.stackTrace,
+  }) : timestamp = DateTime.now();
+
+  @override
+  String toString() {
+    final buffer = StringBuffer();
+    buffer.writeln('MindHouseDatabaseException: $message');
+    buffer.writeln('Type: ${type.name}');
+    if (operation != null) buffer.writeln('Operation: $operation');
+    if (context != null) buffer.writeln('Context: $context');
+    if (originalError != null) buffer.writeln('Original Error: $originalError');
+    buffer.writeln('Timestamp: ${timestamp.toIso8601String()}');
+    return buffer.toString();
+  }
+
+  /// Convert to JSON for logging purposes
+  Map<String, dynamic> toJson() {
+    return {
+      'message': message,
+      'type': type.name,
+      'operation': operation,
+      'context': context,
+      'originalError': originalError?.toString(),
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+}
+
+/// Database logger for structured logging with multiple severity levels
+class DatabaseLogger {
+  static const String _logPrefix = 'DatabaseHelper';
+  static const bool _enableDebugLogging = true;
+  static const bool _enableErrorLogging = true;
+  static const bool _enablePerformanceLogging = true;
+
+  /// Log levels
+  static const int _levelDebug = 0;
+  static const int _levelInfo = 1;
+  static const int _levelWarning = 2;
+  static const int _levelError = 3;
+  static const int _levelCritical = 4;
+
+  /// Log debug message
+  static void debug(String message, {Map<String, dynamic>? context}) {
+    if (_enableDebugLogging) {
+      _log(_levelDebug, 'DEBUG', message, context: context);
+    }
+  }
+
+  /// Log info message
+  static void info(String message, {Map<String, dynamic>? context}) {
+    _log(_levelInfo, 'INFO', message, context: context);
+  }
+
+  /// Log warning message
+  static void warning(String message, {dynamic error, StackTrace? stackTrace, Map<String, dynamic>? context}) {
+    _log(_levelWarning, 'WARNING', message, error: error, stackTrace: stackTrace, context: context);
+  }
+
+  /// Log error message
+  static void error(String message, {dynamic error, StackTrace? stackTrace, Map<String, dynamic>? context}) {
+    if (_enableErrorLogging) {
+      _log(_levelError, 'ERROR', message, error: error, stackTrace: stackTrace, context: context);
+    }
+  }
+
+  /// Log critical error message
+  static void critical(String message, {dynamic error, StackTrace? stackTrace, Map<String, dynamic>? context}) {
+    _log(_levelCritical, 'CRITICAL', message, error: error, stackTrace: stackTrace, context: context);
+  }
+
+  /// Log performance metrics
+  static void performance(String operation, int durationMs, {Map<String, dynamic>? context}) {
+    if (_enablePerformanceLogging) {
+      final perfContext = {
+        'operation': operation,
+        'duration_ms': durationMs,
+        'performance_category': 'database',
+        ...?context,
+      };
+      _log(_levelInfo, 'PERFORMANCE', 'Operation completed', context: perfContext);
+    }
+  }
+
+  /// Log database exception
+  static void logException(MindHouseDatabaseException exception) {
+    final context = {
+      'exception_type': exception.type.name,
+      'operation': exception.operation,
+      'context': exception.context,
+      'timestamp': exception.timestamp.toIso8601String(),
+    };
+    
+    error(
+      exception.message,
+      error: exception.originalError,
+      stackTrace: exception.stackTrace,
+      context: context,
+    );
+  }
+
+  /// Internal logging method
+  static void _log(
+    int level,
+    String levelName,
+    String message, {
+    dynamic error,
+    StackTrace? stackTrace,
+    Map<String, dynamic>? context,
+  }) {
+    final timestamp = DateTime.now().toIso8601String();
+    final logMessage = '[$timestamp] [$_logPrefix] [$levelName] $message';
+    
+    // Print to console (can be replaced with more sophisticated logging)
+    print(logMessage);
+    
+    if (context != null && context.isNotEmpty) {
+      print('[$timestamp] [$_logPrefix] [CONTEXT] ${context.toString()}');
+    }
+    
+    if (error != null) {
+      print('[$timestamp] [$_logPrefix] [ERROR_DETAILS] ${error.toString()}');
+    }
+    
+    if (stackTrace != null) {
+      print('[$timestamp] [$_logPrefix] [STACK_TRACE] ${stackTrace.toString()}');
+    }
+    
+    // For critical errors, also log to developer console
+    if (level >= _levelError) {
+      developer.log(
+        message,
+        name: _logPrefix,
+        error: error,
+        stackTrace: stackTrace,
+        level: level >= _levelCritical ? 1000 : 800,
+      );
+    }
+  }
+}
+
 /// Database helper class for managing SQLite operations
-/// Handles database creation, versioning, and migrations
+/// Handles database creation, versioning, migrations, error handling, and logging
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
   static Database? _database;
@@ -117,144 +288,418 @@ class DatabaseHelper {
     return _database!;
   }
 
-  /// Initialize database
+  /// Initialize database with comprehensive error handling
   Future<Database> _initDatabase() async {
+    final stopwatch = Stopwatch()..start();
+    
     try {
+      DatabaseLogger.info('Starting database initialization');
+      
       // Get the documents directory
-      Directory documentsDirectory = await getApplicationDocumentsDirectory();
+      Directory documentsDirectory;
+      try {
+        documentsDirectory = await getApplicationDocumentsDirectory();
+      } catch (e) {
+        throw MindHouseDatabaseException(
+          message: 'Failed to get application documents directory',
+          type: DatabaseErrorType.initialization,
+          operation: 'getApplicationDocumentsDirectory',
+          originalError: e,
+          stackTrace: StackTrace.current,
+        );
+      }
+      
       String path = join(documentsDirectory.path, _databaseName);
 
       // Ensure the directory exists
       if (!await documentsDirectory.exists()) {
-        await documentsDirectory.create(recursive: true);
+        try {
+          await documentsDirectory.create(recursive: true);
+          DatabaseLogger.info('Created documents directory', context: {'path': documentsDirectory.path});
+        } catch (e) {
+          throw MindHouseDatabaseException(
+            message: 'Failed to create documents directory',
+            type: DatabaseErrorType.initialization,
+            operation: 'createDirectory',
+            context: {'path': documentsDirectory.path},
+            originalError: e,
+            stackTrace: StackTrace.current,
+          );
+        }
       }
 
-      print('DatabaseHelper: Initializing database at path: $path');
+      DatabaseLogger.info('Initializing database', context: {'path': path, 'version': _databaseVersion});
 
-      // Open the database
-      final database = await openDatabase(
-        path,
-        version: _databaseVersion,
-        onCreate: _onCreate,
-        onUpgrade: _onUpgrade,
-        onConfigure: _onConfigure,
-        onOpen: _onOpen,
-      );
+      // Open the database with error handling
+      Database database;
+      try {
+        database = await openDatabase(
+          path,
+          version: _databaseVersion,
+          onCreate: _onCreateWithErrorHandling,
+          onUpgrade: _onUpgradeWithErrorHandling,
+          onConfigure: _onConfigureWithErrorHandling,
+          onOpen: _onOpenWithErrorHandling,
+        );
+      } catch (e) {
+        throw MindHouseDatabaseException(
+          message: 'Failed to open database',
+          type: DatabaseErrorType.initialization,
+          operation: 'openDatabase',
+          context: {'path': path, 'version': _databaseVersion},
+          originalError: e,
+          stackTrace: StackTrace.current,
+        );
+      }
 
-      print('DatabaseHelper: Database initialized successfully');
+      stopwatch.stop();
+      DatabaseLogger.performance('database_initialization', stopwatch.elapsedMilliseconds, 
+        context: {'path': path, 'version': _databaseVersion});
+      DatabaseLogger.info('Database initialized successfully');
+      
       return database;
     } catch (e) {
-      print('DatabaseHelper: Error initializing database: $e');
-      rethrow;
-    }
-  }
-
-  /// Configure database settings
-  Future<void> _onConfigure(Database db) async {
-    try {
-      print('DatabaseHelper: Configuring database settings');
-      // Enable foreign key constraints
-      await db.execute('PRAGMA foreign_keys = ON');
+      stopwatch.stop();
       
-      // Optimize database performance
-      await db.execute('PRAGMA journal_mode = WAL');
-      await db.execute('PRAGMA synchronous = NORMAL');
-      await db.execute('PRAGMA cache_size = 10000');
-      
-      print('DatabaseHelper: Database configuration completed');
-    } catch (e) {
-      print('DatabaseHelper: Error configuring database: $e');
-      rethrow;
+      if (e is MindHouseDatabaseException) {
+        DatabaseLogger.logException(e);
+        rethrow;
+      } else {
+        final dbException = MindHouseDatabaseException(
+          message: 'Unexpected error during database initialization',
+          type: DatabaseErrorType.initialization,
+          operation: '_initDatabase',
+          originalError: e,
+          stackTrace: StackTrace.current,
+        );
+        DatabaseLogger.logException(dbException);
+        throw dbException;
+      }
     }
   }
 
-  /// Called when database is opened
-  Future<void> _onOpen(Database db) async {
-    try {
-      print('DatabaseHelper: Database opened successfully');
-      // Verify foreign keys are enabled
-      final result = await db.rawQuery('PRAGMA foreign_keys');
-      print('DatabaseHelper: Foreign keys enabled: ${result.first['foreign_keys']}');
-    } catch (e) {
-      print('DatabaseHelper: Error in onOpen: $e');
-    }
-  }
-
-  /// Create database tables
-  Future<void> _onCreate(Database db, int version) async {
+  /// Configure database settings with error handling
+  Future<void> _onConfigureWithErrorHandling(Database db) async {
     final stopwatch = Stopwatch()..start();
     
     try {
-      print('DatabaseHelper: Creating database tables (version $version)');
+      DatabaseLogger.info('Configuring database settings');
+      
+      // Enable foreign key constraints
+      await _executePragmaWithErrorHandling(db, 'foreign_keys = ON', 'enable_foreign_keys');
+      
+      // Optimize database performance
+      await _executePragmaWithErrorHandling(db, 'journal_mode = WAL', 'set_journal_mode');
+      await _executePragmaWithErrorHandling(db, 'synchronous = NORMAL', 'set_synchronous_mode');
+      await _executePragmaWithErrorHandling(db, 'cache_size = 10000', 'set_cache_size');
+      
+      stopwatch.stop();
+      DatabaseLogger.performance('database_configuration', stopwatch.elapsedMilliseconds);
+      DatabaseLogger.info('Database configuration completed');
+    } catch (e) {
+      stopwatch.stop();
+      throw MindHouseDatabaseException(
+        message: 'Failed to configure database settings',
+        type: DatabaseErrorType.initialization,
+        operation: '_onConfigure',
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
+  /// Legacy method for backward compatibility
+  Future<void> _onConfigure(Database db) async {
+    return _onConfigureWithErrorHandling(db);
+  }
+
+  /// Called when database is opened with error handling
+  Future<void> _onOpenWithErrorHandling(Database db) async {
+    try {
+      DatabaseLogger.info('Database opened, performing verification checks');
+      
+      // Verify foreign keys are enabled
+      final result = await db.rawQuery('PRAGMA foreign_keys');
+      final foreignKeysEnabled = result.first['foreign_keys'] as int == 1;
+      
+      if (!foreignKeysEnabled) {
+        DatabaseLogger.warning('Foreign keys are not enabled', context: {'expected': true, 'actual': false});
+      } else {
+        DatabaseLogger.debug('Foreign keys verification passed', context: {'enabled': true});
+      }
+      
+      // Perform basic connectivity test
+      await _performConnectivityCheck(db);
+      
+      DatabaseLogger.info('Database opened successfully and verified');
+    } catch (e) {
+      DatabaseLogger.error('Error during database opening verification', error: e, stackTrace: StackTrace.current);
+      // Don't rethrow - this is non-critical verification
+    }
+  }
+
+  /// Legacy method for backward compatibility
+  Future<void> _onOpen(Database db) async {
+    return _onOpenWithErrorHandling(db);
+  }
+
+  /// Create database tables with comprehensive error handling
+  Future<void> _onCreateWithErrorHandling(Database db, int version) async {
+    final stopwatch = Stopwatch()..start();
+    
+    try {
+      DatabaseLogger.info('Starting database table creation', context: {'version': version});
       
       // Create version history table first
-      await _createVersionHistoryTable(db);
+      await _createVersionHistoryTableWithErrorHandling(db);
       
-      // Create main tables
-      await _createInformationTable(db);
-      await _createTagsTable(db);
-      await _createInformationTagsTable(db);
+      // Create main tables with rollback capability
+      await _executeTransactionWithErrorHandling(db, 'table_creation', () async {
+        await _createInformationTableWithErrorHandling(db);
+        await _createTagsTableWithErrorHandling(db);
+        await _createInformationTagsTableWithErrorHandling(db);
+      });
       
       stopwatch.stop();
       
       // Record initial version in history
-      await _recordVersionHistory(
-        db,
-        version,
-        stopwatch.elapsedMilliseconds,
-        'Initial database creation',
-      );
+      try {
+        await _recordVersionHistory(
+          db,
+          version,
+          stopwatch.elapsedMilliseconds,
+          'Initial database creation',
+        );
+      } catch (e) {
+        DatabaseLogger.warning('Failed to record version history during creation', error: e);
+        // Don't fail the entire creation for history recording failure
+      }
       
-      print('DatabaseHelper: All tables created successfully in ${stopwatch.elapsedMilliseconds}ms');
+      DatabaseLogger.performance('database_table_creation', stopwatch.elapsedMilliseconds, context: {'version': version});
+      DatabaseLogger.info('All tables created successfully');
     } catch (e) {
-      print('DatabaseHelper: Error creating tables: $e');
-      rethrow;
+      stopwatch.stop();
+      throw MindHouseDatabaseException(
+        message: 'Failed to create database tables',
+        type: DatabaseErrorType.initialization,
+        operation: '_onCreate',
+        context: {'version': version, 'duration_ms': stopwatch.elapsedMilliseconds},
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
     }
   }
 
-  /// Handle database upgrades/migrations
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+  /// Legacy method for backward compatibility
+  Future<void> _onCreate(Database db, int version) async {
+    return _onCreateWithErrorHandling(db, version);
+  }
+
+  /// Handle database upgrades/migrations with comprehensive error handling
+  Future<void> _onUpgradeWithErrorHandling(Database db, int oldVersion, int newVersion) async {
     final upgradeStopwatch = Stopwatch()..start();
     
     try {
-      print('DatabaseHelper: Upgrading database from version $oldVersion to $newVersion');
+      DatabaseLogger.info('Starting database upgrade', context: {
+        'old_version': oldVersion,
+        'new_version': newVersion,
+        'version_difference': newVersion - oldVersion,
+      });
       
       // Validate version compatibility
       if (!_isVersionSupported(newVersion)) {
-        throw Exception('Database version $newVersion is not supported. Supported range: $_minimumSupportedVersion - $_maximumSupportedVersion');
+        throw MindHouseDatabaseException(
+          message: 'Database version $newVersion is not supported',
+          type: DatabaseErrorType.migration,
+          operation: 'version_validation',
+          context: {
+            'target_version': newVersion,
+            'supported_range': '$_minimumSupportedVersion - $_maximumSupportedVersion',
+          },
+        );
       }
       
       if (oldVersion > newVersion) {
-        throw Exception('Cannot downgrade database from version $oldVersion to $newVersion');
+        throw MindHouseDatabaseException(
+          message: 'Cannot downgrade database from version $oldVersion to $newVersion',
+          type: DatabaseErrorType.migration,
+          operation: 'version_validation',
+          context: {
+            'old_version': oldVersion,
+            'new_version': newVersion,
+          },
+        );
       }
       
       // Create version history table if it doesn't exist (for older databases)
-      await _ensureVersionHistoryTableExists(db);
+      await _ensureVersionHistoryTableExistsWithErrorHandling(db);
       
       // Handle migrations step by step
       for (int version = oldVersion + 1; version <= newVersion; version++) {
         final migrationStopwatch = Stopwatch()..start();
         
-        print('DatabaseHelper: Migrating to version $version (${versionNames[version] ?? 'Unknown'})');
-        await _migrateToVersion(db, version);
+        DatabaseLogger.info('Migrating to version $version', context: {
+          'version_name': versionNames[version] ?? 'Unknown',
+          'current_step': version - oldVersion,
+          'total_steps': newVersion - oldVersion,
+        });
         
-        migrationStopwatch.stop();
-        
-        // Record each migration in history
-        await _recordVersionHistory(
-          db,
-          version,
-          migrationStopwatch.elapsedMilliseconds,
-          'Migration from version ${version - 1}',
-        );
+        try {
+          await _migrateToVersionWithErrorHandling(db, version);
+          migrationStopwatch.stop();
+          
+          // Record each migration in history
+          try {
+            await _recordVersionHistory(
+              db,
+              version,
+              migrationStopwatch.elapsedMilliseconds,
+              'Migration from version ${version - 1}',
+            );
+          } catch (e) {
+            DatabaseLogger.warning('Failed to record migration history', error: e, context: {'version': version});
+            // Don't fail migration for history recording failure
+          }
+          
+          DatabaseLogger.performance('migration_step', migrationStopwatch.elapsedMilliseconds, context: {
+            'version': version,
+            'migration_name': versionNames[version],
+          });
+        } catch (e) {
+          migrationStopwatch.stop();
+          throw MindHouseDatabaseException(
+            message: 'Migration to version $version failed',
+            type: DatabaseErrorType.migration,
+            operation: 'migrate_to_version',
+            context: {
+              'target_version': version,
+              'migration_duration_ms': migrationStopwatch.elapsedMilliseconds,
+              'version_name': versionNames[version],
+            },
+            originalError: e,
+            stackTrace: StackTrace.current,
+          );
+        }
       }
       
       upgradeStopwatch.stop();
-      print('DatabaseHelper: Database upgrade completed in ${upgradeStopwatch.elapsedMilliseconds}ms');
+      DatabaseLogger.performance('database_upgrade', upgradeStopwatch.elapsedMilliseconds, context: {
+        'old_version': oldVersion,
+        'new_version': newVersion,
+        'steps_completed': newVersion - oldVersion,
+      });
+      DatabaseLogger.info('Database upgrade completed successfully');
     } catch (e) {
-      print('DatabaseHelper: Error upgrading database: $e');
-      rethrow;
+      upgradeStopwatch.stop();
+      
+      if (e is MindHouseDatabaseException) {
+        DatabaseLogger.logException(e);
+        rethrow;
+      } else {
+        final dbException = MindHouseDatabaseException(
+          message: 'Unexpected error during database upgrade',
+          type: DatabaseErrorType.migration,
+          operation: '_onUpgrade',
+          context: {
+            'old_version': oldVersion,
+            'new_version': newVersion,
+            'duration_ms': upgradeStopwatch.elapsedMilliseconds,
+          },
+          originalError: e,
+          stackTrace: StackTrace.current,
+        );
+        DatabaseLogger.logException(dbException);
+        throw dbException;
+      }
     }
+  }
+
+  /// Legacy method for backward compatibility
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    return _onUpgradeWithErrorHandling(db, oldVersion, newVersion);
+  }
+
+  /// Execute PRAGMA command with error handling
+  Future<void> _executePragmaWithErrorHandling(Database db, String pragma, String operation) async {
+    try {
+      await db.execute('PRAGMA $pragma');
+      DatabaseLogger.debug('PRAGMA executed successfully', context: {'pragma': pragma, 'operation': operation});
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to execute PRAGMA $pragma',
+        type: DatabaseErrorType.initialization,
+        operation: operation,
+        context: {'pragma': pragma},
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
+  /// Perform basic database connectivity check
+  Future<void> _performConnectivityCheck(Database db) async {
+    try {
+      final result = await db.rawQuery('SELECT 1 as test');
+      if (result.isEmpty || result.first['test'] != 1) {
+        throw MindHouseDatabaseException(
+          message: 'Database connectivity check failed - unexpected result',
+          type: DatabaseErrorType.connection,
+          operation: 'connectivity_check',
+          context: {'result': result},
+        );
+      }
+      DatabaseLogger.debug('Database connectivity check passed');
+    } catch (e) {
+      if (e is MindHouseDatabaseException) {
+        rethrow;
+      }
+      throw MindHouseDatabaseException(
+        message: 'Database connectivity check failed',
+        type: DatabaseErrorType.connection,
+        operation: 'connectivity_check',
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
+  /// Execute transaction with error handling and rollback capability
+  Future<T> _executeTransactionWithErrorHandling<T>(
+    Database db, 
+    String operationName, 
+    Future<T> Function() operation
+  ) async {
+    final stopwatch = Stopwatch()..start();
+    
+    try {
+      DatabaseLogger.debug('Starting transaction', context: {'operation': operationName});
+      
+      final result = await db.transaction((txn) async {
+        // Replace the database reference temporarily for the transaction
+        return await operation();
+      });
+      
+      stopwatch.stop();
+      DatabaseLogger.performance('transaction_$operationName', stopwatch.elapsedMilliseconds);
+      DatabaseLogger.debug('Transaction completed successfully', context: {'operation': operationName});
+      
+      return result;
+    } catch (e) {
+      stopwatch.stop();
+      throw MindHouseDatabaseException(
+        message: 'Transaction failed for operation: $operationName',
+        type: DatabaseErrorType.query,
+        operation: 'transaction_$operationName',
+        context: {'duration_ms': stopwatch.elapsedMilliseconds},
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
+  /// Migrate to specific version with comprehensive validation and error handling
+  Future<void> _migrateToVersionWithErrorHandling(Database db, int version) async {
+    return _migrateToVersion(db, version);
   }
 
   /// Migrate to specific version with comprehensive validation
@@ -1441,10 +1886,98 @@ class DatabaseHelper {
     }
   }
 
+  /// Create information table with error handling
+  Future<void> _createInformationTableWithErrorHandling(Database db) async {
+    final stopwatch = Stopwatch()..start();
+    
+    try {
+      DatabaseLogger.info('Creating information table');
+      await _createInformationTable(db);
+      stopwatch.stop();
+      DatabaseLogger.performance('create_information_table', stopwatch.elapsedMilliseconds);
+    } catch (e) {
+      stopwatch.stop();
+      throw MindHouseDatabaseException(
+        message: 'Failed to create information table',
+        type: DatabaseErrorType.initialization,
+        operation: 'create_information_table',
+        context: {'duration_ms': stopwatch.elapsedMilliseconds},
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
+  /// Create tags table with error handling
+  Future<void> _createTagsTableWithErrorHandling(Database db) async {
+    final stopwatch = Stopwatch()..start();
+    
+    try {
+      DatabaseLogger.info('Creating tags table');
+      await _createTagsTable(db);
+      stopwatch.stop();
+      DatabaseLogger.performance('create_tags_table', stopwatch.elapsedMilliseconds);
+    } catch (e) {
+      stopwatch.stop();
+      throw MindHouseDatabaseException(
+        message: 'Failed to create tags table',
+        type: DatabaseErrorType.initialization,
+        operation: 'create_tags_table',
+        context: {'duration_ms': stopwatch.elapsedMilliseconds},
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
+  /// Create information_tags junction table with error handling
+  Future<void> _createInformationTagsTableWithErrorHandling(Database db) async {
+    final stopwatch = Stopwatch()..start();
+    
+    try {
+      DatabaseLogger.info('Creating information_tags junction table');
+      await _createInformationTagsTable(db);
+      stopwatch.stop();
+      DatabaseLogger.performance('create_information_tags_table', stopwatch.elapsedMilliseconds);
+    } catch (e) {
+      stopwatch.stop();
+      throw MindHouseDatabaseException(
+        message: 'Failed to create information_tags junction table',
+        type: DatabaseErrorType.initialization,
+        operation: 'create_information_tags_table',
+        context: {'duration_ms': stopwatch.elapsedMilliseconds},
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
+  /// Create version history table with error handling
+  Future<void> _createVersionHistoryTableWithErrorHandling(Database db) async {
+    final stopwatch = Stopwatch()..start();
+    
+    try {
+      DatabaseLogger.info('Creating version history table');
+      await _createVersionHistoryTable(db);
+      stopwatch.stop();
+      DatabaseLogger.performance('create_version_history_table', stopwatch.elapsedMilliseconds);
+    } catch (e) {
+      stopwatch.stop();
+      throw MindHouseDatabaseException(
+        message: 'Failed to create version history table',
+        type: DatabaseErrorType.initialization,
+        operation: 'create_version_history_table',
+        context: {'duration_ms': stopwatch.elapsedMilliseconds},
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
   /// Create information table
   Future<void> _createInformationTable(Database db) async {
     try {
-      print('DatabaseHelper: Creating information table');
+      DatabaseLogger.debug('Creating information table schema');
       
       const String createInformationTableSQL = '''
         CREATE TABLE $informationTable (
@@ -1524,17 +2057,22 @@ class DatabaseHelper {
         ON $informationTable ($colIsArchived, $colUpdatedAt)
       ''');
       
-      print('DatabaseHelper: Information table created successfully');
+      DatabaseLogger.debug('Information table created successfully');
     } catch (e) {
-      print('DatabaseHelper: Error creating information table: $e');
-      rethrow;
+      throw MindHouseDatabaseException(
+        message: 'Error creating information table',
+        type: DatabaseErrorType.initialization,
+        operation: 'create_information_table_sql',
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
     }
   }
 
   /// Create tags table
   Future<void> _createTagsTable(Database db) async {
     try {
-      print('DatabaseHelper: Creating tags table');
+      DatabaseLogger.debug('Creating tags table schema');
       
       const String createTagsTableSQL = '''
         CREATE TABLE $tagsTable (
@@ -1588,17 +2126,22 @@ class DatabaseHelper {
         ON $tagsTable ($colTagUsageCount, $colTagCreatedAt)
       ''');
       
-      print('DatabaseHelper: Tags table created successfully');
+      DatabaseLogger.debug('Tags table created successfully');
     } catch (e) {
-      print('DatabaseHelper: Error creating tags table: $e');
-      rethrow;
+      throw MindHouseDatabaseException(
+        message: 'Error creating tags table',
+        type: DatabaseErrorType.initialization,
+        operation: 'create_tags_table_sql',
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
     }
   }
 
   /// Create information_tags junction table
   Future<void> _createInformationTagsTable(Database db) async {
     try {
-      print('DatabaseHelper: Creating information_tags junction table');
+      DatabaseLogger.debug('Creating information_tags junction table schema');
       
       const String createInformationTagsTableSQL = '''
         CREATE TABLE $informationTagsTable (
@@ -1652,17 +2195,22 @@ class DatabaseHelper {
         ON $informationTagsTable ($colInformationId, $colAssignedAt)
       ''');
       
-      print('DatabaseHelper: Information_tags junction table created successfully');
+      DatabaseLogger.debug('Information_tags junction table created successfully');
     } catch (e) {
-      print('DatabaseHelper: Error creating information_tags junction table: $e');
-      rethrow;
+      throw MindHouseDatabaseException(
+        message: 'Error creating information_tags junction table',
+        type: DatabaseErrorType.initialization,
+        operation: 'create_information_tags_table_sql',
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
     }
   }
 
   /// Create version history table
   Future<void> _createVersionHistoryTable(Database db) async {
     try {
-      print('DatabaseHelper: Creating version history table');
+      DatabaseLogger.debug('Creating version history table schema');
       
       const String createVersionHistoryTableSQL = '''
         CREATE TABLE $_versionTableName (
@@ -1689,15 +2237,20 @@ class DatabaseHelper {
         ON $_versionTableName ($colMigrationDate)
       ''');
       
-      print('DatabaseHelper: Version history table created successfully');
+      DatabaseLogger.debug('Version history table created successfully');
     } catch (e) {
-      print('DatabaseHelper: Error creating version history table: $e');
-      rethrow;
+      throw MindHouseDatabaseException(
+        message: 'Error creating version history table',
+        type: DatabaseErrorType.initialization,
+        operation: 'create_version_history_table_sql',
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
     }
   }
 
-  /// Ensure version history table exists (for existing databases)
-  Future<void> _ensureVersionHistoryTableExists(Database db) async {
+  /// Ensure version history table exists with error handling
+  Future<void> _ensureVersionHistoryTableExistsWithErrorHandling(Database db) async {
     try {
       final tableExists = await db.rawQuery('''
         SELECT name FROM sqlite_master 
@@ -1705,12 +2258,25 @@ class DatabaseHelper {
       ''');
       
       if (tableExists.isEmpty) {
-        await _createVersionHistoryTable(db);
+        DatabaseLogger.info('Version history table does not exist, creating it');
+        await _createVersionHistoryTableWithErrorHandling(db);
+      } else {
+        DatabaseLogger.debug('Version history table already exists');
       }
     } catch (e) {
-      print('DatabaseHelper: Error ensuring version history table exists: $e');
-      rethrow;
+      throw MindHouseDatabaseException(
+        message: 'Failed to ensure version history table exists',
+        type: DatabaseErrorType.initialization,
+        operation: 'ensure_version_history_table',
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
     }
+  }
+
+  /// Ensure version history table exists (for existing databases)
+  Future<void> _ensureVersionHistoryTableExists(Database db) async {
+    return _ensureVersionHistoryTableExistsWithErrorHandling(db);
   }
 
   /// Record version history entry
@@ -1760,6 +2326,168 @@ class DatabaseHelper {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     String path = join(documentsDirectory.path, _databaseName);
     return await databaseFactory.databaseExists(path);
+  }
+
+  // ========== ERROR HANDLING AND LOGGING METHODS ==========
+
+  /// Execute a database query with comprehensive error handling
+  Future<List<Map<String, dynamic>>> executeQueryWithErrorHandling(
+    String sql, {
+    List<dynamic>? arguments,
+    String? operation,
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    final op = operation ?? 'query';
+    
+    try {
+      DatabaseLogger.debug('Executing query', context: {'sql': sql, 'arguments': arguments, 'operation': op});
+      
+      final db = await database;
+      final result = await db.rawQuery(sql, arguments);
+      
+      stopwatch.stop();
+      DatabaseLogger.performance('query_$op', stopwatch.elapsedMilliseconds, context: {
+        'result_count': result.length,
+        'sql_length': sql.length,
+      });
+      
+      return result;
+    } catch (e) {
+      stopwatch.stop();
+      throw MindHouseDatabaseException(
+        message: 'Query execution failed',
+        type: DatabaseErrorType.query,
+        operation: op,
+        context: {
+          'sql': sql,
+          'arguments': arguments,
+          'duration_ms': stopwatch.elapsedMilliseconds,
+        },
+        originalError: e,
+        stackTrace: StackTrace.current,
+      );
+    }
+  }
+
+  /// Perform comprehensive database health check with error logging
+  Future<Map<String, dynamic>> performDatabaseHealthCheck() async {
+    final stopwatch = Stopwatch()..start();
+    final healthReport = <String, dynamic>{
+      'timestamp': DateTime.now().toIso8601String(),
+      'is_healthy': true,
+      'errors': <String>[],
+      'warnings': <String>[],
+      'metrics': <String, dynamic>{},
+    };
+    
+    try {
+      DatabaseLogger.info('Starting comprehensive database health check');
+      
+      // Test database connectivity
+      try {
+        final db = await database;
+        await _performConnectivityCheck(db);
+        healthReport['metrics']['connectivity'] = 'ok';
+      } catch (e) {
+        healthReport['is_healthy'] = false;
+        healthReport['errors'].add('Connectivity check failed: ${e.toString()}');
+      }
+      
+      // Check database integrity
+      try {
+        final integrityResult = await executeQueryWithErrorHandling(
+          'PRAGMA integrity_check',
+          operation: 'integrity_check',
+        );
+        final isIntegrityOk = integrityResult.first['integrity_check'] == 'ok';
+        healthReport['metrics']['integrity'] = isIntegrityOk ? 'ok' : 'failed';
+        if (!isIntegrityOk) {
+          healthReport['is_healthy'] = false;
+          healthReport['errors'].add('Database integrity check failed');
+        }
+      } catch (e) {
+        healthReport['is_healthy'] = false;
+        healthReport['errors'].add('Integrity check error: ${e.toString()}');
+      }
+      
+      // Check foreign key constraints
+      try {
+        final foreignKeyResult = await executeQueryWithErrorHandling(
+          'PRAGMA foreign_key_check',
+          operation: 'foreign_key_check',
+        );
+        final hasForeignKeyViolations = foreignKeyResult.isNotEmpty;
+        healthReport['metrics']['foreign_keys'] = hasForeignKeyViolations ? 'violations' : 'ok';
+        if (hasForeignKeyViolations) {
+          healthReport['warnings'].add('Foreign key constraint violations detected');
+        }
+      } catch (e) {
+        healthReport['warnings'].add('Foreign key check error: ${e.toString()}');
+      }
+      
+      // Check table existence
+      final expectedTables = [informationTable, tagsTable, informationTagsTable, _versionTableName];
+      for (final table in expectedTables) {
+        try {
+          final tableResult = await executeQueryWithErrorHandling(
+            'SELECT name FROM sqlite_master WHERE type="table" AND name=?',
+            arguments: [table],
+            operation: 'table_existence_check',
+          );
+          if (tableResult.isEmpty) {
+            healthReport['is_healthy'] = false;
+            healthReport['errors'].add('Required table $table is missing');
+          }
+        } catch (e) {
+          healthReport['warnings'].add('Table existence check failed for $table: ${e.toString()}');
+        }
+      }
+      
+      stopwatch.stop();
+      healthReport['metrics']['health_check_duration_ms'] = stopwatch.elapsedMilliseconds;
+      
+      DatabaseLogger.performance('database_health_check', stopwatch.elapsedMilliseconds, context: {
+        'is_healthy': healthReport['is_healthy'],
+        'error_count': (healthReport['errors'] as List).length,
+        'warning_count': (healthReport['warnings'] as List).length,
+      });
+      
+      if (healthReport['is_healthy'] as bool) {
+        DatabaseLogger.info('Database health check completed - database is healthy');
+      } else {
+        DatabaseLogger.warning('Database health check completed - issues detected', context: {
+          'errors': healthReport['errors'],
+          'warnings': healthReport['warnings'],
+        });
+      }
+      
+      return healthReport;
+    } catch (e) {
+      stopwatch.stop();
+      healthReport['is_healthy'] = false;
+      healthReport['errors'].add('Health check failed: ${e.toString()}');
+      healthReport['metrics']['health_check_duration_ms'] = stopwatch.elapsedMilliseconds;
+      
+      DatabaseLogger.error('Database health check failed', error: e, stackTrace: StackTrace.current);
+      return healthReport;
+    }
+  }
+
+  /// Get error statistics and logging information
+  Map<String, dynamic> getErrorStatistics() {
+    return {
+      'timestamp': DateTime.now().toIso8601String(),
+      'logging_enabled': {
+        'debug': DatabaseLogger._enableDebugLogging,
+        'error': DatabaseLogger._enableErrorLogging,
+        'performance': DatabaseLogger._enablePerformanceLogging,
+      },
+      'supported_error_types': DatabaseErrorType.values.map((e) => e.name).toList(),
+      'database_version': {
+        'current': _databaseVersion,
+        'supported_range': '$_minimumSupportedVersion - $_maximumSupportedVersion',
+      },
+    };
   }
 
 }

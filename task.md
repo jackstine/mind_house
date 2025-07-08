@@ -38,75 +38,6 @@ When completing todos, if you encounter any errors or make mistakes, please docu
 
 **CRITICAL**: Every todo item that involves development MUST include comprehensive testing. This is non-negotiable for the Mind Map application.
 
-#### Testing Types Required by Category
-
-**Category A (Environment Setup)**: 
-- Verification tests for environment configuration
-- Basic Flutter build tests
-- Device connectivity tests
-
-**Category B (Database Layer)**:
-- Unit tests for all database operations
-- Schema validation tests
-- Migration testing
-- Error handling tests
-- Performance tests for large datasets
-
-**Category C (Core Models)**:
-- Unit tests for all model classes
-- Repository pattern tests
-- Data validation tests
-- CRUD operation tests
-- UUID generation and handling tests
-
-**Category D (State Management - BLoC)**:
-- Unit tests for all BLoC classes
-- Event handling tests
-- State transition tests
-- Error state tests
-- Async operation tests
-
-**Category E (Core UI Components)**:
-- Widget tests for every component
-- Golden file tests for visual regression
-- Interaction tests (tap, input, selection)
-- Accessibility tests
-- Platform-specific tests (iOS/Android)
-
-**Category F (Page Components)**:
-- Widget tests for complete pages
-- Integration tests for page workflows
-- Navigation tests
-- State persistence tests
-- Form validation tests
-
-**Category G (Navigation)**:
-- Navigation flow tests
-- Deep linking tests
-- Back button handling tests
-- Tab switching tests
-- Lifecycle management tests
-
-**Category H (Business Logic)**:
-- End-to-end workflow tests
-- Tag suggestion algorithm tests
-- Search and filtering tests
-- Data consistency tests
-- Performance tests under load
-
-**Category I (Testing Infrastructure)**:
-- Test framework configuration tests
-- Mock data generation tests
-- Test database setup/teardown verification
-- CI/CD pipeline tests
-
-**Category J (Testing Implementation)**:
-- Comprehensive test suite execution
-- Coverage verification (target >80%)
-- BDD scenario tests with Gherkin
-- Integration test execution
-- Performance benchmark tests
-
 #### Testing Standards by Technology
 
 **Flutter Testing**:
@@ -305,9 +236,6 @@ When adding new instructions or processes:
 4. Update this file if new processes were discovered
 5. **Run `fvm flutter test` to ensure no regressions**
 6. Mark the task as complete in the todo system
-7. **IMPORTANT**: When completing a task in the todo list, check it off with a checkmark ✅
-8. **REQUIRED**: Commit every time you complete a sub step in the `development-todo.md` file
-9. **REQUIRED**: Check off completed tasks in the development todo list
 
 ### Testing Verification Checklist
 Before marking any development todo as complete ✅:

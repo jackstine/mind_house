@@ -66,6 +66,10 @@ dev_dependencies:
   
   # BLoC testing
   bloc_test: ^9.1.7
+  
+  # Mocking for tests
+  mockito: ^5.4.4
+  build_runner: ^2.4.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

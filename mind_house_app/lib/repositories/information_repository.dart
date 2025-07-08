@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:mind_house_app/database/database_helper.dart';
 import 'package:mind_house_app/models/information.dart';
 import 'package:mind_house_app/models/information_tag.dart';
+import 'package:mind_house_app/repositories/interfaces/information_repository_interface.dart';
 
 /// Enumeration for sorting fields
 enum SortField {
@@ -23,7 +24,10 @@ enum SortOrder {
 /// Provides comprehensive CRUD operations, search functionality, filtering,
 /// sorting, and pagination for Information objects. Follows repository pattern
 /// to abstract database operations from business logic.
-class InformationRepository {
+/// 
+/// This implementation uses SQLite as the underlying data store and implements
+/// the IInformationRepository interface for testability and dependency injection.
+class InformationRepository implements IInformationRepository {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
   
   /// Table and column constants
@@ -46,6 +50,7 @@ class InformationRepository {
   /// 
   /// Returns the ID of the created information item.
   /// Throws [MindHouseDatabaseException] if creation fails.
+  @override
   Future<String> create(Information information) async {
     try {
       final Database db = await _databaseHelper.database;

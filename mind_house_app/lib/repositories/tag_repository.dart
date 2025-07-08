@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:mind_house_app/database/database_helper.dart';
 import 'package:mind_house_app/models/tag.dart';
+import 'package:mind_house_app/repositories/interfaces/tag_repository_interface.dart';
 
 /// Enumeration for tag sorting fields
 enum TagSortField {
@@ -27,7 +28,10 @@ enum SortOrder {
 /// 
 /// This repository supports the tags-first approach of the Mind House app,
 /// providing efficient tag management and usage analytics.
-class TagRepository {
+/// 
+/// This implementation uses SQLite as the underlying data store and implements
+/// the ITagRepository interface for testability and dependency injection.
+class TagRepository implements ITagRepository {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
   
   /// Table and column constants - using DatabaseHelper constants

@@ -691,4 +691,282 @@ class TagRepository {
       );
     }
   }
+
+  /// Get smart tag suggestions based on context and usage patterns
+  /// 
+  /// [partialName] - Partial tag name to search for
+  /// [existingTagIds] - IDs of tags already selected (for context-aware suggestions)
+  /// [limit] - Maximum number of suggestions to return (default: 5)
+  /// [includeRecentlyUsed] - Whether to boost recently used tags in ranking (default: true)
+  /// 
+  /// This method implements advanced suggestion logic that:
+  /// - Prioritizes exact prefix matches over partial matches
+  /// - Boosts frequently used tags
+  /// - Considers recently used tags if enabled
+  /// - Excludes already selected tags from suggestions
+  /// - Uses intelligent ranking algorithm for optimal suggestions
+  /// 
+  /// Throws [MindHouseDatabaseException] if query fails.
+  Future<List<Tag>> getSmartSuggestions(
+    String partialName, {
+    List<String> existingTagIds = const [],
+    int limit = 5,
+    bool includeRecentlyUsed = true,
+  }) async {
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      if (partialName.trim().isEmpty) {
+        return [];
+      }
+      
+      final String normalizedInput = partialName.trim().toLowerCase();
+      final String exactPattern = '$normalizedInput%';
+      final String containsPattern = '%$normalizedInput%';
+      
+      // Build WHERE clause to exclude existing tags
+      final List<String> whereConditions = [];
+      final List<dynamic> whereArgs = [];
+      
+      // Add search conditions with smart ranking
+      whereConditions.add('(LOWER($_colName) LIKE ? OR LOWER($_colName) LIKE ?)');
+      whereArgs.addAll([exactPattern, containsPattern]);
+      
+      // Exclude already selected tags
+      if (existingTagIds.isNotEmpty) {
+        final String placeholders = existingTagIds.map((id) => '?').join(',');
+        whereConditions.add('$_colId NOT IN ($placeholders)');
+        whereArgs.addAll(existingTagIds);
+      }
+      
+      final String whereClause = whereConditions.join(' AND ');
+      
+      // Smart ordering algorithm:
+      // 1. Exact prefix matches first (highest priority)
+      // 2. Usage count (frequently used tags get priority)
+      // 3. Recently used boost (if enabled)
+      // 4. Alphabetical for tie-breaking
+      String orderClause = '''
+        (CASE 
+          WHEN LOWER($_colName) LIKE '$exactPattern' THEN 1 
+          ELSE 2 
+        END) ASC,
+        $_colUsageCount DESC,
+        $_colName ASC
+      ''';
+      
+      // If recently used boost is enabled, modify the order to include recency
+      if (includeRecentlyUsed) {
+        // Get threshold for recent usage (7 days ago)
+        final DateTime recentThreshold = DateTime.now().subtract(const Duration(days: 7));
+        final String recentThresholdString = recentThreshold.toIso8601String();
+        
+        orderClause = '''
+          (CASE 
+            WHEN LOWER($_colName) LIKE '$exactPattern' THEN 1 
+            ELSE 2 
+          END) ASC,
+          (CASE 
+            WHEN $_colUpdatedAt >= '$recentThresholdString' THEN $_colUsageCount * 1.5 
+            ELSE $_colUsageCount 
+          END) DESC,
+          $_colName ASC
+        ''';
+      }
+      
+      final List<Map<String, dynamic>> results = await db.query(
+        _tableName,
+        where: whereClause,
+        whereArgs: whereArgs,
+        orderBy: orderClause,
+        limit: limit,
+      );
+      
+      return results.map((json) => Tag.fromJson(json)).toList();
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to get smart tag suggestions',
+        type: DatabaseErrorType.query,
+        operation: 'getSmartSuggestions',
+        context: {
+          'partialName': partialName,
+          'existingTagIds': existingTagIds,
+          'limit': limit,
+          'includeRecentlyUsed': includeRecentlyUsed,
+        },
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get contextual tag suggestions based on co-occurrence patterns
+  /// 
+  /// [baseTagIds] - IDs of tags already selected to find related tags
+  /// [limit] - Maximum number of suggestions to return (default: 5)
+  /// 
+  /// This method finds tags that are frequently used together with the provided tags.
+  /// It queries the information_tags junction table to find co-occurrence patterns
+  /// and suggests tags that are commonly used with the base tags.
+  /// 
+  /// Throws [MindHouseDatabaseException] if query fails.
+  Future<List<Tag>> getContextualSuggestions(
+    List<String> baseTagIds, {
+    int limit = 5,
+  }) async {
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      if (baseTagIds.isEmpty) {
+        return [];
+      }
+      
+      // Find tags that co-occur with the base tags
+      final String basePlaceholders = baseTagIds.map((id) => '?').join(',');
+      
+      final List<Map<String, dynamic>> results = await db.rawQuery('''
+        SELECT t.*, COUNT(DISTINCT it1.information_id) as co_occurrence_count
+        FROM $_tableName t
+        INNER JOIN information_tags it2 ON t.id = it2.tag_id
+        WHERE it2.information_id IN (
+          SELECT DISTINCT it1.information_id 
+          FROM information_tags it1 
+          WHERE it1.tag_id IN ($basePlaceholders)
+        )
+        AND t.id NOT IN ($basePlaceholders)
+        GROUP BY t.id
+        ORDER BY co_occurrence_count DESC, t.usage_count DESC, t.name ASC
+        LIMIT ?
+      ''', [...baseTagIds, ...baseTagIds, limit]);
+      
+      return results.map((json) => Tag.fromJson(json)).toList();
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to get contextual tag suggestions',
+        type: DatabaseErrorType.query,
+        operation: 'getContextualSuggestions',
+        context: {'baseTagIds': baseTagIds, 'limit': limit},
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get trending tag suggestions based on recent usage patterns
+  /// 
+  /// [days] - Number of days to look back for trending analysis (default: 30)
+  /// [limit] - Maximum number of suggestions to return (default: 5)
+  /// 
+  /// This method identifies tags that have seen increased usage in the recent period
+  /// compared to their historical average. Good for discovering emerging topics.
+  /// 
+  /// Throws [MindHouseDatabaseException] if query fails.
+  Future<List<Tag>> getTrendingSuggestions({
+    int days = 30,
+    int limit = 5,
+  }) async {
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      // Calculate trending tags based on recent usage vs historical usage
+      // This is a simplified trending algorithm - in production you might want
+      // more sophisticated time-series analysis
+      
+      final DateTime recentThreshold = DateTime.now().subtract(Duration(days: days));
+      final String recentThresholdString = recentThreshold.toIso8601String();
+      
+      final List<Map<String, dynamic>> results = await db.rawQuery('''
+        SELECT t.*,
+               COUNT(DISTINCT it.information_id) as recent_usage,
+               (t.usage_count - COUNT(DISTINCT it.information_id)) as historical_usage,
+               CASE 
+                 WHEN (t.usage_count - COUNT(DISTINCT it.information_id)) > 0 
+                 THEN CAST(COUNT(DISTINCT it.information_id) AS REAL) / (t.usage_count - COUNT(DISTINCT it.information_id))
+                 ELSE COUNT(DISTINCT it.information_id)
+               END as trend_score
+        FROM $_tableName t
+        LEFT JOIN information_tags it ON t.id = it.tag_id 
+        LEFT JOIN information i ON it.information_id = i.id 
+                                AND i.created_at >= ?
+        WHERE t.usage_count > 0
+        GROUP BY t.id
+        HAVING recent_usage > 0
+        ORDER BY trend_score DESC, recent_usage DESC, t.usage_count DESC
+        LIMIT ?
+      ''', [recentThresholdString, limit]);
+      
+      return results.map((json) => Tag.fromJson(json)).toList();
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to get trending tag suggestions',
+        type: DatabaseErrorType.query,
+        operation: 'getTrendingSuggestions',
+        context: {'days': days, 'limit': limit},
+        originalError: e,
+      );
+    }
+  }
+
+  /// Get diverse tag suggestions to promote tag discovery
+  /// 
+  /// [excludeTagIds] - IDs of tags to exclude from suggestions
+  /// [limit] - Maximum number of suggestions to return (default: 5)
+  /// [maxPerColor] - Maximum tags per color to ensure diversity (default: 2)
+  /// 
+  /// This method returns a diverse set of tags across different colors and usage levels
+  /// to help users discover new tags and avoid over-reliance on frequently used ones.
+  /// 
+  /// Throws [MindHouseDatabaseException] if query fails.
+  Future<List<Tag>> getDiverseSuggestions({
+    List<String> excludeTagIds = const [],
+    int limit = 5,
+    int maxPerColor = 2,
+  }) async {
+    try {
+      final Database db = await _databaseHelper.database;
+      
+      // Build exclusion clause
+      final List<String> whereConditions = [];
+      final List<dynamic> whereArgs = [];
+      
+      if (excludeTagIds.isNotEmpty) {
+        final String placeholders = excludeTagIds.map((id) => '?').join(',');
+        whereConditions.add('$_colId NOT IN ($placeholders)');
+        whereArgs.addAll(excludeTagIds);
+      }
+      
+      final String whereClause = whereConditions.isNotEmpty 
+          ? 'WHERE ${whereConditions.join(' AND ')}'
+          : '';
+      
+      // Use window functions to get diverse tags (limit per color)
+      final List<Map<String, dynamic>> results = await db.rawQuery('''
+        SELECT *
+        FROM (
+          SELECT *,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY $_colColor 
+                   ORDER BY $_colUsageCount DESC, $_colName ASC
+                 ) as color_rank
+          FROM $_tableName
+          $whereClause
+        ) ranked
+        WHERE color_rank <= ?
+        ORDER BY $_colUsageCount DESC, $_colName ASC
+        LIMIT ?
+      ''', [...whereArgs, maxPerColor, limit]);
+      
+      return results.map((json) => Tag.fromJson(json)).toList();
+    } catch (e) {
+      throw MindHouseDatabaseException(
+        message: 'Failed to get diverse tag suggestions',
+        type: DatabaseErrorType.query,
+        operation: 'getDiverseSuggestions',
+        context: {
+          'excludeTagIds': excludeTagIds,
+          'limit': limit,
+          'maxPerColor': maxPerColor,
+        },
+        originalError: e,
+      );
+    }
+  }
 }

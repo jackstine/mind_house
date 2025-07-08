@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:uuid/uuid.dart';
+import '../utils/tag_normalization.dart';
 
 /// Tag model class representing a tag in the Mind House app
 /// 
@@ -68,13 +69,14 @@ class Tag {
   /// Create a new Tag instance
   /// 
   /// [name] and [displayName] are required and cannot be empty
-  /// [name] will be normalized to lowercase for consistency
+  /// [name] will be normalized using comprehensive normalization logic
+  /// [displayName] will be normalized for display purposes
   /// [color] must be a valid hex color format
   /// [usageCount] must be non-negative
   Tag({
     String? id,
     required String name,
-    required this.displayName,
+    String? displayName,
     this.description,
     this.color = defaultColor,
     this.usageCount = 0,
@@ -83,16 +85,19 @@ class Tag {
     this.lastUsedAt,
   }) : 
     id = id ?? _uuid.v4(),
-    name = name.toLowerCase().trim(),
+    name = TagNormalization.normalizeName(name),
+    displayName = displayName != null 
+        ? TagNormalization.normalizeForDisplay(displayName)
+        : TagNormalization.normalizeForDisplay(name),
     createdAt = createdAt ?? DateTime.now(),
     updatedAt = updatedAt ?? DateTime.now() {
     
-    // Validation
-    if (this.name.isEmpty) {
-      throw ArgumentError('Tag name cannot be empty');
+    // Validation using TagNormalization utility
+    if (!TagNormalization.isValid(name)) {
+      throw ArgumentError('Tag name is invalid after normalization');
     }
     
-    if (displayName.trim().isEmpty) {
+    if (this.displayName.trim().isEmpty) {
       throw ArgumentError('Tag display name cannot be empty');
     }
     
@@ -145,6 +150,7 @@ class Tag {
   /// 
   /// The [updatedAt] timestamp will be automatically set to the current time
   /// unless explicitly provided. The [id] and [createdAt] fields are immutable.
+  /// Names will be normalized using the TagNormalization utility.
   Tag copyWith({
     String? name,
     String? displayName,
@@ -196,6 +202,45 @@ class Tag {
     if (lastUsedAt == null) return false;
     final threshold = DateTime.now().subtract(Duration(days: days));
     return lastUsedAt!.isAfter(threshold);
+  }
+  
+  /// Check if this tag is equivalent to another tag name (ignoring case and formatting)
+  /// 
+  /// This is useful for preventing duplicate tags with different formatting.
+  bool isEquivalentTo(String otherName) {
+    return TagNormalization.areEquivalent(name, otherName);
+  }
+  
+  /// Generate a URL-safe slug for this tag
+  /// 
+  /// Useful for creating URLs or file names based on the tag.
+  String generateSlug() {
+    return TagNormalization.generateSlug(name);
+  }
+  
+  /// Get suggestions for alternative tag names
+  /// 
+  /// Returns a list of suggested tag name variations.
+  List<String> getSuggestions() {
+    return TagNormalization.getSuggestions(displayName);
+  }
+  
+  /// Create a tag from a raw input string with automatic normalization
+  /// 
+  /// This factory constructor is especially useful when creating tags from user input.
+  static Tag fromInput(String input, {String? color}) {
+    return Tag(
+      name: input,
+      color: color ?? getRandomColor(),
+    );
+  }
+  
+  /// Create multiple tags from hashtag text
+  /// 
+  /// Extracts hashtags from text and creates Tag instances for each unique hashtag.
+  static List<Tag> fromHashtags(String text) {
+    final hashtags = TagNormalization.extractHashtags(text);
+    return hashtags.map((hashtag) => Tag.fromInput(hashtag)).toList();
   }
   
   /// Two Tag instances are equal if they have the same ID

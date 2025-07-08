@@ -110,7 +110,7 @@ class Tag {
     return Tag(
       id: json['id'] as String,
       name: json['name'] as String,
-      displayName: json['display_name'] as String,
+      displayName: (json['display_name'] as String?) ?? (json['name'] as String),
       description: json['description'] as String?,
       color: (json['color'] as String?) ?? defaultColor,
       usageCount: (json['usage_count'] as int?) ?? 0,
@@ -124,17 +124,21 @@ class Tag {
   
   /// Convert Tag to database JSON map
   Map<String, dynamic> toJson() {
-    return {
+    // Note: Only include fields that exist in the current database schema
+    final Map<String, dynamic> json = {
       'id': id,
       'name': name,
-      'display_name': displayName,
       'description': description,
       'color': color,
       'usage_count': usageCount,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
-      'last_used_at': lastUsedAt?.toIso8601String(),
     };
+    
+    // Only include display_name and last_used_at if the database supports them
+    // This will be updated when database schema migrations are implemented
+    
+    return json;
   }
   
   /// Create a copy of this Tag with updated fields

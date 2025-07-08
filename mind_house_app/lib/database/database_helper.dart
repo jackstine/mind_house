@@ -257,26 +257,262 @@ class DatabaseHelper {
     }
   }
 
-  /// Migrate to specific version
+  /// Migrate to specific version with comprehensive validation
   Future<void> _migrateToVersion(Database db, int version) async {
+    final migrationStopwatch = Stopwatch()..start();
+    
+    try {
+      print('DatabaseHelper: Starting migration to version $version');
+      
+      // Pre-migration validation
+      await _preMigrationValidation(db, version);
+      
+      // Backup critical data if needed
+      await _backupDataForMigration(db, version);
+      
+      // Execute the actual migration
+      await _executeMigration(db, version);
+      
+      // Post-migration validation
+      await _postMigrationValidation(db, version);
+      
+      migrationStopwatch.stop();
+      print('DatabaseHelper: Migration to version $version completed in ${migrationStopwatch.elapsedMilliseconds}ms');
+      
+    } catch (e) {
+      migrationStopwatch.stop();
+      print('DatabaseHelper: Migration to version $version failed after ${migrationStopwatch.elapsedMilliseconds}ms: $e');
+      
+      // Attempt rollback if possible
+      await _attemptMigrationRollback(db, version, e);
+      rethrow;
+    }
+  }
+
+  /// Execute the actual migration for a specific version
+  Future<void> _executeMigration(Database db, int version) async {
     switch (version) {
       case 1:
         // Initial database creation - handled by onCreate
         break;
       case 2:
-        // Future migration example
+        // Enhanced information table with reading time
         await _migrateInformationTableToV2(db);
         break;
       case 3:
-        // Example migration for tags table
+        // Tag categories support
         await _migrateTagsTableToV3(db);
         break;
       case 4:
-        // Example migration for junction table
+        // Junction table enhancements with priority
         await _migrateInformationTagsTableToV4(db);
+        break;
+      case 5:
+        // Full-text search capabilities
+        await _migrateToFullTextSearchV5(db);
+        break;
+      case 6:
+        // Performance optimizations
+        await _migratePerformanceOptimizationsV6(db);
         break;
       default:
         print('DatabaseHelper: No migration needed for version $version');
+    }
+  }
+
+  /// Pre-migration validation
+  Future<void> _preMigrationValidation(Database db, int version) async {
+    try {
+      print('DatabaseHelper: Running pre-migration validation for version $version');
+      
+      // Check database integrity
+      final integrityResult = await db.rawQuery('PRAGMA integrity_check');
+      if (integrityResult.first['integrity_check'] != 'ok') {
+        throw Exception('Database integrity check failed before migration');
+      }
+      
+      // Check foreign key constraints
+      final foreignKeyResult = await db.rawQuery('PRAGMA foreign_key_check');
+      if (foreignKeyResult.isNotEmpty) {
+        throw Exception('Foreign key constraint violations detected before migration');
+      }
+      
+      // Verify required tables exist for the migration
+      await _verifyRequiredTablesForMigration(db, version);
+      
+      print('DatabaseHelper: Pre-migration validation passed');
+    } catch (e) {
+      print('DatabaseHelper: Pre-migration validation failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Post-migration validation
+  Future<void> _postMigrationValidation(Database db, int version) async {
+    try {
+      print('DatabaseHelper: Running post-migration validation for version $version');
+      
+      // Check database integrity after migration
+      final integrityResult = await db.rawQuery('PRAGMA integrity_check');
+      if (integrityResult.first['integrity_check'] != 'ok') {
+        throw Exception('Database integrity check failed after migration');
+      }
+      
+      // Verify schema changes were applied correctly
+      await _verifySchemaChanges(db, version);
+      
+      // Check that all expected indexes exist
+      await _verifyIndexesAfterMigration(db, version);
+      
+      print('DatabaseHelper: Post-migration validation passed');
+    } catch (e) {
+      print('DatabaseHelper: Post-migration validation failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Backup data before migration (for critical migrations)
+  Future<void> _backupDataForMigration(Database db, int version) async {
+    try {
+      // Only backup for critical migrations that could cause data loss
+      final criticalMigrations = [3, 5, 6]; // Example critical versions
+      
+      if (!criticalMigrations.contains(version)) {
+        return;
+      }
+      
+      print('DatabaseHelper: Creating data backup before migration to version $version');
+      
+      // Create backup tables with timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      
+      // Backup information table
+      await db.execute('''
+        CREATE TABLE information_backup_$timestamp AS 
+        SELECT * FROM $informationTable
+      ''');
+      
+      // Backup tags table
+      await db.execute('''
+        CREATE TABLE tags_backup_$timestamp AS 
+        SELECT * FROM $tagsTable
+      ''');
+      
+      // Backup junction table
+      await db.execute('''
+        CREATE TABLE information_tags_backup_$timestamp AS 
+        SELECT * FROM $informationTagsTable
+      ''');
+      
+      print('DatabaseHelper: Data backup completed');
+    } catch (e) {
+      print('DatabaseHelper: Data backup failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Attempt migration rollback
+  Future<void> _attemptMigrationRollback(Database db, int version, dynamic error) async {
+    try {
+      print('DatabaseHelper: Attempting rollback for failed migration to version $version');
+      
+      // Implementation would depend on specific migration
+      // For now, just log the attempt
+      print('DatabaseHelper: Rollback not implemented for version $version');
+      print('DatabaseHelper: Original error: $error');
+      
+    } catch (rollbackError) {
+      print('DatabaseHelper: Rollback failed: $rollbackError');
+    }
+  }
+
+  /// Verify required tables exist for migration
+  Future<void> _verifyRequiredTablesForMigration(Database db, int version) async {
+    final requiredTables = <String>[];
+    
+    switch (version) {
+      case 2:
+        requiredTables.addAll([informationTable]);
+        break;
+      case 3:
+        requiredTables.addAll([tagsTable]);
+        break;
+      case 4:
+        requiredTables.addAll([informationTagsTable]);
+        break;
+      case 5:
+        requiredTables.addAll([informationTable, tagsTable]);
+        break;
+      case 6:
+        requiredTables.addAll([informationTable, tagsTable, informationTagsTable]);
+        break;
+    }
+    
+    for (final table in requiredTables) {
+      final result = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name='$table'
+      ''');
+      
+      if (result.isEmpty) {
+        throw Exception('Required table $table does not exist for migration to version $version');
+      }
+    }
+  }
+
+  /// Verify schema changes were applied correctly
+  Future<void> _verifySchemaChanges(Database db, int version) async {
+    switch (version) {
+      case 2:
+        // Verify reading_time column was added
+        final infoColumns = await db.rawQuery('PRAGMA table_info($informationTable)');
+        final hasReadingTime = infoColumns.any((col) => col['name'] == 'reading_time');
+        if (!hasReadingTime) {
+          throw Exception('reading_time column was not added to information table');
+        }
+        break;
+      case 3:
+        // Verify category column was added to tags
+        final tagColumns = await db.rawQuery('PRAGMA table_info($tagsTable)');
+        final hasCategory = tagColumns.any((col) => col['name'] == 'category');
+        if (!hasCategory) {
+          throw Exception('category column was not added to tags table');
+        }
+        break;
+      case 4:
+        // Verify priority column was added to junction table
+        final junctionColumns = await db.rawQuery('PRAGMA table_info($informationTagsTable)');
+        final hasPriority = junctionColumns.any((col) => col['name'] == 'priority');
+        if (!hasPriority) {
+          throw Exception('priority column was not added to information_tags table');
+        }
+        break;
+    }
+  }
+
+  /// Verify indexes exist after migration
+  Future<void> _verifyIndexesAfterMigration(Database db, int version) async {
+    switch (version) {
+      case 2:
+        // Verify reading_time index exists
+        final indexes = await db.rawQuery('''
+          SELECT name FROM sqlite_master 
+          WHERE type='index' AND name='idx_information_reading_time'
+        ''');
+        if (indexes.isEmpty) {
+          throw Exception('idx_information_reading_time index was not created');
+        }
+        break;
+      case 3:
+        // Verify category index exists
+        final indexes = await db.rawQuery('''
+          SELECT name FROM sqlite_master 
+          WHERE type='index' AND name='idx_tags_category'
+        ''');
+        if (indexes.isEmpty) {
+          throw Exception('idx_tags_category index was not created');
+        }
+        break;
     }
   }
 
@@ -348,6 +584,121 @@ class DatabaseHelper {
       print('DatabaseHelper: Information_tags junction table migration to v4 completed');
     } catch (e) {
       print('DatabaseHelper: Error migrating information_tags junction table to v4: $e');
+      rethrow;
+    }
+  }
+
+  /// Full-text search migration (version 5)
+  Future<void> _migrateToFullTextSearchV5(Database db) async {
+    try {
+      print('DatabaseHelper: Migrating to full-text search version 5');
+      
+      // Create FTS virtual table for information content
+      await db.execute('''
+        CREATE VIRTUAL TABLE information_fts USING fts5(
+          title, content, source, 
+          content='$informationTable', 
+          content_rowid='rowid'
+        )
+      ''');
+      
+      // Populate FTS table with existing data
+      await db.execute('''
+        INSERT INTO information_fts(rowid, title, content, source)
+        SELECT rowid, $colTitle, $colContent, $colSource 
+        FROM $informationTable
+      ''');
+      
+      // Create triggers to keep FTS table in sync
+      await db.execute('''
+        CREATE TRIGGER information_fts_insert AFTER INSERT ON $informationTable BEGIN
+          INSERT INTO information_fts(rowid, title, content, source) 
+          VALUES (new.rowid, new.$colTitle, new.$colContent, new.$colSource);
+        END
+      ''');
+      
+      await db.execute('''
+        CREATE TRIGGER information_fts_delete AFTER DELETE ON $informationTable BEGIN
+          INSERT INTO information_fts(information_fts, rowid, title, content, source) 
+          VALUES('delete', old.rowid, old.$colTitle, old.$colContent, old.$colSource);
+        END
+      ''');
+      
+      await db.execute('''
+        CREATE TRIGGER information_fts_update AFTER UPDATE ON $informationTable BEGIN
+          INSERT INTO information_fts(information_fts, rowid, title, content, source) 
+          VALUES('delete', old.rowid, old.$colTitle, old.$colContent, old.$colSource);
+          INSERT INTO information_fts(rowid, title, content, source) 
+          VALUES (new.rowid, new.$colTitle, new.$colContent, new.$colSource);
+        END
+      ''');
+      
+      print('DatabaseHelper: Full-text search migration to v5 completed');
+    } catch (e) {
+      print('DatabaseHelper: Error migrating to full-text search v5: $e');
+      rethrow;
+    }
+  }
+
+  /// Performance optimizations migration (version 6)
+  Future<void> _migratePerformanceOptimizationsV6(Database db) async {
+    try {
+      print('DatabaseHelper: Migrating performance optimizations version 6');
+      
+      // Add materialized view for tag statistics
+      await db.execute('''
+        CREATE TABLE tag_statistics (
+          tag_id TEXT PRIMARY KEY,
+          usage_count INTEGER NOT NULL DEFAULT 0,
+          last_used TEXT,
+          avg_importance REAL DEFAULT 0.0,
+          FOREIGN KEY (tag_id) REFERENCES $tagsTable ($colTagId) ON DELETE CASCADE
+        )
+      ''');
+      
+      // Populate tag statistics
+      await db.execute('''
+        INSERT INTO tag_statistics (tag_id, usage_count, last_used, avg_importance)
+        SELECT 
+          it.$colJunctionTagId,
+          COUNT(*) as usage_count,
+          MAX(it.$colAssignedAt) as last_used,
+          AVG(i.$colImportance) as avg_importance
+        FROM $informationTagsTable it
+        JOIN $informationTable i ON i.$colId = it.$colInformationId
+        GROUP BY it.$colJunctionTagId
+      ''');
+      
+      // Create index on tag statistics
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tag_statistics_usage 
+        ON tag_statistics (usage_count DESC)
+      ''');
+      
+      await db.execute('''
+        CREATE INDEX IF NOT EXISTS idx_tag_statistics_last_used 
+        ON tag_statistics (last_used DESC)
+      ''');
+      
+      // Add trigger to maintain tag statistics
+      await db.execute('''
+        CREATE TRIGGER maintain_tag_statistics AFTER INSERT ON $informationTagsTable
+        BEGIN
+          INSERT OR REPLACE INTO tag_statistics (tag_id, usage_count, last_used, avg_importance)
+          SELECT 
+            new.$colJunctionTagId,
+            COUNT(*),
+            MAX(it.$colAssignedAt),
+            AVG(i.$colImportance)
+          FROM $informationTagsTable it
+          JOIN $informationTable i ON i.$colId = it.$colInformationId
+          WHERE it.$colJunctionTagId = new.$colJunctionTagId;
+        END
+      ''');
+      
+      print('DatabaseHelper: Performance optimizations migration to v6 completed');
+    } catch (e) {
+      print('DatabaseHelper: Error migrating performance optimizations v6: $e');
       rethrow;
     }
   }
@@ -923,6 +1274,170 @@ class DatabaseHelper {
     } catch (e) {
       print('DatabaseHelper: Error optimizing database: $e');
       rethrow;
+    }
+  }
+
+  /// Test migration to a specific version (for testing purposes)
+  Future<bool> testMigrationToVersion(int targetVersion) async {
+    try {
+      print('DatabaseHelper: Testing migration to version $targetVersion');
+      
+      // Validate target version
+      if (!_isVersionSupported(targetVersion)) {
+        throw Exception('Target version $targetVersion is not supported');
+      }
+      
+      final currentVersion = await getCurrentDatabaseVersion();
+      if (currentVersion >= targetVersion) {
+        print('DatabaseHelper: Already at or above target version');
+        return true;
+      }
+      
+      // Simulate the migration without actually changing the database
+      print('DatabaseHelper: Migration test would migrate from $currentVersion to $targetVersion');
+      
+      // Check if all required tables exist
+      for (int version = currentVersion + 1; version <= targetVersion; version++) {
+        await _verifyRequiredTablesForMigration(await database, version);
+      }
+      
+      print('DatabaseHelper: Migration test passed');
+      return true;
+    } catch (e) {
+      print('DatabaseHelper: Migration test failed: $e');
+      return false;
+    }
+  }
+
+  /// Get migration status for all versions
+  Future<List<Map<String, dynamic>>> getMigrationStatus() async {
+    try {
+      final currentVersion = await getCurrentDatabaseVersion();
+      final migrationStatus = <Map<String, dynamic>>[];
+      
+      for (int version = 1; version <= _maximumSupportedVersion; version++) {
+        final versionInfo = getVersionInfo(version);
+        final isApplied = version <= currentVersion;
+        final canApply = version == currentVersion + 1;
+        
+        migrationStatus.add({
+          'version': version,
+          'name': versionInfo['name'],
+          'description': versionInfo['description'],
+          'is_applied': isApplied,
+          'can_apply': canApply,
+          'is_current': version == currentVersion,
+          'supported': versionInfo['supported'],
+        });
+      }
+      
+      return migrationStatus;
+    } catch (e) {
+      print('DatabaseHelper: Error getting migration status: $e');
+      return [];
+    }
+  }
+
+  /// Clean up old backup tables
+  Future<void> cleanupOldBackups() async {
+    try {
+      final db = await database;
+      print('DatabaseHelper: Cleaning up old backup tables');
+      
+      // Get all backup tables
+      final backupTables = await db.rawQuery('''
+        SELECT name FROM sqlite_master 
+        WHERE type='table' AND name LIKE '%_backup_%'
+        ORDER BY name
+      ''');
+      
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000); // 1 week in milliseconds
+      
+      for (final table in backupTables) {
+        final tableName = table['name'] as String;
+        
+        // Extract timestamp from table name
+        final parts = tableName.split('_');
+        if (parts.length >= 3) {
+          try {
+            final timestamp = int.parse(parts.last);
+            if (timestamp < oneWeekAgo) {
+              await db.execute('DROP TABLE IF EXISTS $tableName');
+              print('DatabaseHelper: Dropped old backup table: $tableName');
+            }
+          } catch (e) {
+            // Skip if timestamp parsing fails
+          }
+        }
+      }
+      
+      print('DatabaseHelper: Backup cleanup completed');
+    } catch (e) {
+      print('DatabaseHelper: Error cleaning up backups: $e');
+      rethrow;
+    }
+  }
+
+  /// Validate database structure consistency
+  Future<Map<String, dynamic>> validateDatabaseStructure() async {
+    try {
+      final db = await database;
+      final validation = <String, dynamic>{
+        'is_valid': true,
+        'errors': <String>[],
+        'warnings': <String>[],
+        'tables_checked': 0,
+        'indexes_checked': 0,
+      };
+      
+      // Check integrity
+      final integrityResult = await db.rawQuery('PRAGMA integrity_check');
+      if (integrityResult.first['integrity_check'] != 'ok') {
+        validation['is_valid'] = false;
+        validation['errors'].add('Database integrity check failed');
+      }
+      
+      // Check foreign key constraints
+      final foreignKeyResult = await db.rawQuery('PRAGMA foreign_key_check');
+      if (foreignKeyResult.isNotEmpty) {
+        validation['is_valid'] = false;
+        validation['errors'].add('Foreign key constraint violations found');
+      }
+      
+      // Check that all expected tables exist
+      final expectedTables = [informationTable, tagsTable, informationTagsTable, _versionTableName];
+      for (final table in expectedTables) {
+        final result = await db.rawQuery('''
+          SELECT name FROM sqlite_master 
+          WHERE type='table' AND name='$table'
+        ''');
+        
+        if (result.isEmpty) {
+          validation['is_valid'] = false;
+          validation['errors'].add('Required table $table is missing');
+        } else {
+          validation['tables_checked'] = (validation['tables_checked'] as int) + 1;
+        }
+      }
+      
+      // Check indexes
+      final indexes = await getAllIndexes();
+      validation['indexes_checked'] = indexes.length;
+      
+      if (indexes.length < 20) { // We should have many indexes
+        validation['warnings'].add('Fewer indexes than expected (${indexes.length})');
+      }
+      
+      return validation;
+    } catch (e) {
+      return {
+        'is_valid': false,
+        'errors': ['Validation failed: $e'],
+        'warnings': <String>[],
+        'tables_checked': 0,
+        'indexes_checked': 0,
+      };
     }
   }
 

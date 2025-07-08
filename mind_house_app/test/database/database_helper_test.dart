@@ -298,5 +298,54 @@ void main() {
       expect(rowCounts.containsKey('information_tags'), isTrue);
       expect(rowCounts.containsKey('database_version_history'), isTrue);
     });
+
+    test('Migration status should be tracked correctly', () async {
+      final migrationStatus = await databaseHelper.getMigrationStatus();
+      
+      expect(migrationStatus, isNotEmpty);
+      expect(migrationStatus.length, equals(10)); // Should have status for versions 1-10
+      
+      // Version 1 should be applied (current version)
+      final version1 = migrationStatus.firstWhere((v) => v['version'] == 1);
+      expect(version1['is_applied'], isTrue);
+      expect(version1['is_current'], isTrue);
+      expect(version1['name'], equals('Initial Schema'));
+      
+      // Version 2 should be available for application
+      final version2 = migrationStatus.firstWhere((v) => v['version'] == 2);
+      expect(version2['is_applied'], isFalse);
+      expect(version2['can_apply'], isTrue);
+      expect(version2['supported'], isTrue);
+    });
+
+    test('Database structure validation should work', () async {
+      final validation = await databaseHelper.validateDatabaseStructure();
+      
+      expect(validation['is_valid'], isA<bool>());
+      expect(validation['errors'], isA<List>());
+      expect(validation['warnings'], isA<List>());
+      expect(validation['tables_checked'], isA<int>());
+      expect(validation['indexes_checked'], isA<int>());
+      
+      // Should check at least 4 tables
+      expect(validation['tables_checked'], greaterThanOrEqualTo(4));
+      
+      // Should have many indexes
+      expect(validation['indexes_checked'], greaterThan(15));
+    });
+
+    test('Migration testing should validate requirements', () async {
+      // Test migration to version 2 (should be possible)
+      final canMigrateV2 = await databaseHelper.testMigrationToVersion(2);
+      expect(canMigrateV2, isTrue);
+      
+      // Test migration to version 1 (already at this version)
+      final canMigrateV1 = await databaseHelper.testMigrationToVersion(1);
+      expect(canMigrateV1, isTrue);
+      
+      // Test migration to unsupported version (should fail)
+      final canMigrateV99 = await databaseHelper.testMigrationToVersion(99);
+      expect(canMigrateV99, isFalse);
+    });
   });
 }

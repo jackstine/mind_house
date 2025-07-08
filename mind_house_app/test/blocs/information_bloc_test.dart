@@ -351,6 +351,124 @@ class MockInformationRepository implements InformationRepository {
   }
 }
 
+/// Mock repository that throws exceptions for testing error handling
+class FailingMockInformationRepository implements InformationRepository {
+  @override
+  Future<String> create(Information information) async {
+    throw Exception('Database connection failed');
+  }
+
+  @override
+  Future<Information?> getById(String id) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<bool> update(Information information) async {
+    throw Exception('Database update failed');
+  }
+
+  @override
+  Future<bool> delete(String id) async {
+    throw Exception('Database delete failed');
+  }
+
+  @override
+  Future<List<Information>> getAll({int? limit, int? offset}) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<List<Information>> getAllSorted({
+    required SortField sortBy,
+    required SortOrder sortOrder,
+    int? limit,
+    int? offset,
+  }) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<List<Information>> getByType(InformationType type, {int? limit, int? offset}) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<List<Information>> getFavorites({int? limit, int? offset}) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<List<Information>> getArchived({int? limit, int? offset}) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<List<Information>> search(String query, {int? limit, int? offset}) async {
+    throw Exception('Database search failed');
+  }
+
+  @override
+  Future<bool> markAsAccessed(String id) async {
+    throw Exception('Database update failed');
+  }
+
+  @override
+  Future<int> getCount({InformationType? type, bool? isFavorite, bool? isArchived}) async {
+    throw Exception('Database count failed');
+  }
+
+  @override
+  Future<List<Information>> getRecentlyAccessed({int limit = 10}) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<List<Information>> getByImportance(
+    int minImportance, {
+    int? maxImportance,
+    int? limit,
+    int? offset,
+  }) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<void> addTags(String informationId, List<String> tagIds) async {
+    throw Exception('Database tag operation failed');
+  }
+
+  @override
+  Future<void> removeTags(String informationId, List<String> tagIds) async {
+    throw Exception('Database tag operation failed');
+  }
+
+  @override
+  Future<void> updateTags(String informationId, List<String> newTagIds) async {
+    throw Exception('Database tag operation failed');
+  }
+
+  @override
+  Future<List<InformationTag>> getTagAssignments(String informationId) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<List<String>> getTagIds(String informationId) async {
+    throw Exception('Database query failed');
+  }
+
+  @override
+  Future<List<Information>> getByTagIds(
+    List<String> tagIds, {
+    bool requireAllTags = false,
+    int? limit,
+    int? offset,
+  }) async {
+    throw Exception('Database query failed');
+  }
+}
+
 void main() {
   group('InformationBloc', () {
     late MockInformationRepository mockRepository;
@@ -815,22 +933,55 @@ void main() {
       blocTest<InformationBloc, CrudState>(
         'emits CrudErrorState when repository throws exception during create',
         build: () {
-          // Create a broken information item that will cause validation error
-          return informationBloc;
+          final failingRepository = FailingMockInformationRepository();
+          return InformationBloc(failingRepository);
         },
-        act: (bloc) {
-          // This will cause an error due to empty title/content during validation
-          final brokenInfo = Information(
-            title: '',
-            content: 'content',
-            type: InformationType.note,
-          );
-          return bloc.add(CreateItemEvent<Information>(brokenInfo));
-        },
+        act: (bloc) => bloc.add(CreateItemEvent<Information>(testInformation1)),
         expect: () => [
           const CrudCreatingState(),
           isA<CrudErrorState>()
               .having((state) => state.message, 'error message', contains('Failed to create')),
+        ],
+      );
+
+      blocTest<InformationBloc, CrudState>(
+        'emits CrudErrorState when repository throws exception during update',
+        build: () {
+          final failingRepository = FailingMockInformationRepository();
+          return InformationBloc(failingRepository);
+        },
+        act: (bloc) => bloc.add(UpdateItemEvent<Information>(testInformation1)),
+        expect: () => [
+          const CrudUpdatingState(),
+          isA<CrudErrorState>()
+              .having((state) => state.message, 'error message', contains('Failed to update')),
+        ],
+      );
+
+      blocTest<InformationBloc, CrudState>(
+        'emits CrudErrorState when repository throws exception during delete',
+        build: () {
+          final failingRepository = FailingMockInformationRepository();
+          return InformationBloc(failingRepository);
+        },
+        act: (bloc) => bloc.add(const DeleteItemEvent('test-id')),
+        expect: () => [
+          const CrudDeletingState(),
+          isA<CrudErrorState>()
+              .having((state) => state.message, 'error message', contains('Failed to delete')),
+        ],
+      );
+
+      blocTest<InformationBloc, CrudState>(
+        'emits CrudErrorState when repository throws exception during markAsAccessed',
+        build: () {
+          final failingRepository = FailingMockInformationRepository();
+          return InformationBloc(failingRepository);
+        },
+        act: (bloc) => bloc.add(const MarkAsAccessedEvent('test-id')),
+        expect: () => [
+          isA<CrudErrorState>()
+              .having((state) => state.message, 'error message', contains('Failed to mark')),
         ],
       );
 

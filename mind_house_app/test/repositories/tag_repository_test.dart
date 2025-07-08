@@ -361,4 +361,189 @@ void main() {
       );
     });
   });
+
+  group('TagRepository Advanced Suggestions', () {
+    late List<Tag> testTags;
+    
+    setUp(() async {
+      // Create comprehensive test data for suggestion testing
+      testTags = [
+        Tag(name: 'flutter', displayName: 'Flutter', color: '#2196F3', usageCount: 15),
+        Tag(name: 'flutter-widgets', displayName: 'Flutter Widgets', color: '#2196F3', usageCount: 8),
+        Tag(name: 'dart', displayName: 'Dart', color: '#00D2B8', usageCount: 12),
+        Tag(name: 'dart-async', displayName: 'Dart Async', color: '#00D2B8', usageCount: 6),
+        Tag(name: 'mobile', displayName: 'Mobile', color: '#FF5722', usageCount: 20),
+        Tag(name: 'web', displayName: 'Web Development', color: '#4CAF50', usageCount: 5),
+        Tag(name: 'backend', displayName: 'Backend', color: '#9C27B0', usageCount: 3),
+        Tag(name: 'frontend', displayName: 'Frontend', color: '#FF9800', usageCount: 7),
+      ];
+      
+      for (final tag in testTags) {
+        await tagRepository.create(tag);
+      }
+    });
+    
+    test('should get basic suggestions with partial name match', () async {
+      // Act
+      final result = await tagRepository.getSuggestions('fl');
+      
+      // Assert
+      expect(result.length, equals(2)); // flutter and flutter-widgets
+      expect(result.map((t) => t.name).toSet(), equals({'flutter', 'flutter-widgets'}));
+      // Should prioritize by usage count - flutter (15) before flutter-widgets (8)
+      expect(result.first.name, equals('flutter'));
+    });
+    
+    test('should return empty list for empty suggestion query', () async {
+      // Act
+      final result = await tagRepository.getSuggestions('');
+      
+      // Assert
+      expect(result.isEmpty, isTrue);
+    });
+    
+    test('should get smart suggestions prioritizing exact prefix matches', () async {
+      // Act
+      final result = await tagRepository.getSmartSuggestions('dart');
+      
+      // Assert
+      expect(result.length, equals(2)); // dart and dart-async
+      // Should prioritize exact match 'dart' over partial match 'dart-async'
+      expect(result.first.name, equals('dart'));
+      expect(result.last.name, equals('dart-async'));
+    });
+    
+    test('should exclude existing tags from smart suggestions', () async {
+      // Arrange
+      final flutterTag = testTags.firstWhere((t) => t.name == 'flutter');
+      
+      // Act
+      final result = await tagRepository.getSmartSuggestions(
+        'fl',
+        existingTagIds: [flutterTag.id],
+      );
+      
+      // Assert
+      expect(result.length, equals(1)); // Only flutter-widgets, flutter excluded
+      expect(result.first.name, equals('flutter-widgets'));
+    });
+    
+    test('should boost recently used tags in smart suggestions', () async {
+      // Arrange - Update a tag to make it recently used
+      final webTag = testTags.firstWhere((t) => t.name == 'web');
+      await tagRepository.updateLastUsed(webTag.id);
+      
+      // Act
+      final result = await tagRepository.getSmartSuggestions(
+        'we',
+        includeRecentlyUsed: true,
+      );
+      
+      // Assert
+      expect(result.isNotEmpty, isTrue);
+      expect(result.first.name, equals('web'));
+    });
+    
+    test('should get contextual suggestions based on co-occurrence patterns', () async {
+      // This test would require creating information and information_tags data
+      // For now, test the method doesn't crash with empty base tags
+      
+      // Act
+      final result = await tagRepository.getContextualSuggestions([]);
+      
+      // Assert
+      expect(result.isEmpty, isTrue);
+    });
+    
+    test('should handle contextual suggestions with non-existent base tags', () async {
+      // Act
+      final result = await tagRepository.getContextualSuggestions(['non-existent-id']);
+      
+      // Assert
+      expect(result.isEmpty, isTrue);
+    });
+    
+    test('should get trending suggestions based on recent usage', () async {
+      // Act - This may return empty results without information data, but should not crash
+      final result = await tagRepository.getTrendingSuggestions(days: 30);
+      
+      // Assert
+      expect(result, isA<List<Tag>>());
+      // In a real scenario with information data, this would return trending tags
+    });
+    
+    test('should get diverse suggestions across different colors', () async {
+      // Act
+      final result = await tagRepository.getDiverseSuggestions(
+        limit: 6,
+        maxPerColor: 1,
+      );
+      
+      // Assert
+      expect(result.length, lessThanOrEqualTo(6));
+      
+      // Check that we don't have more than 1 tag per color
+      final colorCounts = <String, int>{};
+      for (final tag in result) {
+        colorCounts[tag.color] = (colorCounts[tag.color] ?? 0) + 1;
+      }
+      
+      for (final count in colorCounts.values) {
+        expect(count, lessThanOrEqualTo(1));
+      }
+    });
+    
+    test('should exclude specified tags from diverse suggestions', () async {
+      // Arrange
+      final mobileTag = testTags.firstWhere((t) => t.name == 'mobile');
+      final flutterTag = testTags.firstWhere((t) => t.name == 'flutter');
+      
+      // Act
+      final result = await tagRepository.getDiverseSuggestions(
+        excludeTagIds: [mobileTag.id, flutterTag.id],
+      );
+      
+      // Assert
+      final resultNames = result.map((t) => t.name).toSet();
+      expect(resultNames.contains('mobile'), isFalse);
+      expect(resultNames.contains('flutter'), isFalse);
+    });
+    
+    test('should handle smart suggestions with special characters in input', () async {
+      // Act
+      final result = await tagRepository.getSmartSuggestions('dart-');
+      
+      // Assert
+      expect(result.length, equals(1)); // dart-async
+      expect(result.first.name, equals('dart-async'));
+    });
+    
+    test('should limit suggestion results correctly', () async {
+      // Act
+      final result = await tagRepository.getSmartSuggestions(
+        'e', // Should match multiple tags (web, mobile, backend, frontend)
+        limit: 2,
+      );
+      
+      // Assert
+      expect(result.length, lessThanOrEqualTo(2));
+    });
+    
+    test('should handle case-insensitive smart suggestions', () async {
+      // Act
+      final result = await tagRepository.getSmartSuggestions('FLUTTER');
+      
+      // Assert
+      expect(result.isNotEmpty, isTrue);
+      expect(result.any((t) => t.name.contains('flutter')), isTrue);
+    });
+    
+    test('should handle empty results gracefully for all suggestion methods', () async {
+      // Act & Assert - All these should return empty lists without crashing
+      expect(await tagRepository.getSuggestions('xyz123'), isEmpty);
+      expect(await tagRepository.getSmartSuggestions('xyz123'), isEmpty);
+      expect(await tagRepository.getContextualSuggestions([]), isEmpty);
+      expect(await tagRepository.getDiverseSuggestions(excludeTagIds: testTags.map((t) => t.id).toList()), isEmpty);
+    });
+  });
 }

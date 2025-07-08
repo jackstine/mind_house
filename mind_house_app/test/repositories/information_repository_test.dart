@@ -5,19 +5,21 @@ import 'package:mind_house_app/models/information.dart';
 import 'package:mind_house_app/database/database_helper.dart';
 
 void main() {
-  // Initialize ffi loader for testing
-  sqfliteFfiInit();
-  
   late InformationRepository repository;
   late DatabaseHelper databaseHelper;
   
   setUpAll(() async {
+    // Initialize Flutter binding for testing
+    TestWidgetsFlutterBinding.ensureInitialized();
+    
+    // Initialize ffi loader for testing
+    sqfliteFfiInit();
     // Use in-memory database for testing
     databaseFactory = databaseFactoryFfi;
   });
   
   setUp(() async {
-    databaseHelper = DatabaseHelper.instance;
+    databaseHelper = DatabaseHelper();
     repository = InformationRepository();
     
     // Initialize database for each test
@@ -25,8 +27,12 @@ void main() {
   });
   
   tearDown(() async {
-    // Close database after each test
-    await databaseHelper.close();
+    // Clean up database after each test
+    try {
+      await databaseHelper.deleteDatabase();
+    } catch (e) {
+      // Ignore errors during cleanup
+    }
   });
 
   group('InformationRepository Tests', () {

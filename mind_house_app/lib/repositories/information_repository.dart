@@ -23,7 +23,7 @@ enum SortOrder {
 /// sorting, and pagination for Information objects. Follows repository pattern
 /// to abstract database operations from business logic.
 class InformationRepository {
-  final DatabaseHelper _databaseHelper = DatabaseHelper.instance;
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
   
   /// Table and column constants
   static const String _tableName = 'information';
@@ -456,14 +456,14 @@ class InformationRepository {
         whereArgs.add(isArchived ? 1 : 0);
       }
       
-      final String whereClause = whereConditions.isNotEmpty 
+      final String? whereClause = whereConditions.isNotEmpty 
           ? whereConditions.join(' AND ')
           : null;
       
       final List<Map<String, dynamic>> results = await db.query(
         _tableName,
         columns: ['COUNT(*) as count'],
-        where: whereClause.isNotEmpty ? whereClause : null,
+        where: whereClause?.isNotEmpty == true ? whereClause : null,
         whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       );
       

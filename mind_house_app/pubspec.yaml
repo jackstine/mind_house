@@ -44,6 +44,7 @@ dependencies:
   # Path provider for database location
   path: ^1.9.1
   path_provider: ^2.1.4
+  logging: ^1.3.0
 
 dev_dependencies:
   flutter_test:

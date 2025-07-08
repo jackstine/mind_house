@@ -244,6 +244,11 @@ class ValidationUtils {
       return ValidationResult.failure('Invalid URL format');
     }
     
+    // Check for obvious malformed URLs first
+    if (!trimmed.contains('://') && !trimmed.contains('.')){
+      return ValidationResult.failure('Invalid URL format');
+    }
+    
     if (!uri.hasScheme) {
       return ValidationResult.failure('URL must include a scheme (http:// or https://)');
     }
@@ -252,7 +257,7 @@ class ValidationUtils {
       return ValidationResult.failure('URL must use http or https scheme');
     }
     
-    if (!uri.hasAuthority) {
+    if (!uri.hasAuthority || uri.host.isEmpty) {
       return ValidationResult.failure('URL must include a domain');
     }
     

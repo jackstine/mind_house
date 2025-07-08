@@ -75,7 +75,7 @@ This todo list is organized by categories with clear dependencies to ensure prop
 **Priority**: Critical
 
 - [✅] D1. Add flutter_bloc dependency to pubspec.yaml
-- [ ] D2. Create base BLoC structure and patterns
+- [✅] D2. Create base BLoC structure and patterns
 - [ ] D3. Create InformationBloc with events and states
 - [ ] D4. Create TagBloc with events and states
 - [ ] D5. Create TagSuggestionBloc with events and states

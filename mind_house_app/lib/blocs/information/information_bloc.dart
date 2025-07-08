@@ -5,7 +5,6 @@ import '../base/crud_states.dart';
 import 'information_events.dart';
 import 'information_states.dart';
 import '../../models/information.dart';
-import '../../models/information_tag.dart';
 import '../../repositories/information_repository.dart';
 
 /// BLoC for managing Information entities with comprehensive CRUD operations

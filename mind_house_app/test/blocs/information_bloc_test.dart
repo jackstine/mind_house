@@ -6,7 +6,6 @@ import 'package:mind_house_app/blocs/base/crud_states.dart';
 import 'package:mind_house_app/models/information.dart';
 import 'package:mind_house_app/models/information_tag.dart';
 import 'package:mind_house_app/repositories/information_repository.dart';
-import 'package:mind_house_app/database/database_helper.dart';
 
 /// Mock repository for testing Information BLoC
 class MockInformationRepository implements InformationRepository {

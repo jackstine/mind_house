@@ -64,6 +64,10 @@ dev_dependencies:
   mockito: ^5.4.4
   build_runner: ^2.4.12
   bloc_test: ^9.1.5
+  
+  # Patrol - Enhanced Flutter testing
+  patrol: ^3.13.0
+  test: ^1.25.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -1,0 +1,52 @@
+{
+  "default": [
+    {
+      "key": "swarm/config/default",
+      "value": "{\"topology\": \"mesh\", \"maxAgents\": 8, \"strategy\": \"auto\", \"mode\": \"centralized\", \"created\": \"2025-08-21T12:50:00Z\"}",
+      "namespace": "default",
+      "timestamp": 1755781212850
+    },
+    {
+      "key": "agents/capabilities/researcher",
+      "value": "{\"skills\": [\"web-search\", \"data-analysis\", \"requirements-gathering\"], \"tools\": [\"memory_search\", \"memory_store\"], \"status\": \"available\"}",
+      "namespace": "default",
+      "timestamp": 1755781216836
+    },
+    {
+      "key": "agents/capabilities/coder",
+      "value": "{\"skills\": [\"python\", \"javascript\", \"testing\", \"debugging\"], \"frameworks\": [\"react\", \"node\", \"flask\"], \"status\": \"available\"}",
+      "namespace": "default",
+      "timestamp": 1755781220921
+    },
+    {
+      "key": "tasks/templates/sparc",
+      "value": "{\"phases\": [\"specification\", \"pseudocode\", \"architecture\", \"refinement\", \"completion\"], \"methodology\": \"SPARC\", \"tdd\": true}",
+      "namespace": "default",
+      "timestamp": 1755781224822
+    },
+    {
+      "key": "workflows/patterns/batch-execution",
+      "value": "{\"rule\": \"All related operations in single message\", \"benefits\": [\"2.8-4.4x speed\", \"32.3% token reduction\"], \"mandatory\": true}",
+      "namespace": "default",
+      "timestamp": 1755781229085
+    },
+    {
+      "key": "sessions/current/context",
+      "value": "{\"project\": \"mind_house\", \"objective\": \"memory management\", \"swarm_initialized\": false, \"last_activity\": \"2025-08-21T12:50:00Z\"}",
+      "namespace": "default",
+      "timestamp": 1755781240145
+    },
+    {
+      "key": "learning/patterns/successful-workflows",
+      "value": "{\"batch-spawning\": \"Always spawn all agents in single message\", \"parallel-tasks\": \"Group file operations together\", \"memory-hierarchy\": \"Use hierarchical keys for organization\"}",
+      "namespace": "default",
+      "timestamp": 1755781243276
+    },
+    {
+      "key": "architecture/decisions/file-organization",
+      "value": "{\"rule\": \"Never save to root folder\", \"directories\": {\"src\": \"Source code\", \"tests\": \"Test files\", \"docs\": \"Documentation\", \"config\": \"Configuration\"}, \"enforced\": true}",
+      "namespace": "default",
+      "timestamp": 1755781246395
+    }
+  ]
+}
